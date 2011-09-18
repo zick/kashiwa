@@ -61,8 +61,8 @@
         vars)))
 
 (define (translate-argument arg)
-  (cond ((and (pair? arg) (eq? (car arg) 'int2num))
-         (string-append "INT2NUM(" (ensure-string (cadr arg)) ")"))
+  (cond ((and (pair? arg) (eq? (car arg) 'int2fixnum))
+         (string-append "INT2FIXNUM(" (ensure-string (cadr arg)) ")"))
         (else (ensure-string arg))))
 
 (define (translate-builtin-call fn args)
@@ -214,7 +214,7 @@
 
 (define (gen-literal-code exp env fun)
   (cond ((number? exp)
-         (list 'int2num exp))
+         (list 'int2fixnum exp))
         ((symbol? exp)
          (gen-lookup-var exp env fun))
         ((and (pair? exp) (eq? (car exp) 'quote))
@@ -228,6 +228,7 @@
            (push-function-vars! (cons "cont_t" clos) fun)
            (push-function-body!
             (list
+             (list clos ".tag = TAG_CONT")
              (list clos ".env = " cenv)
              (list clos ".fn = (function1_t)" name))
             fun)
@@ -235,7 +236,7 @@
 
 (define (gen-quote-code exp env fun)
   (cond ((number? (cadr exp))
-         (list 'int2num (cadr exp)))
+         (list 'int2fixnum (cadr exp)))
         ((symbol? (cadr exp))
          (let ((sym (gensym "sym")))
            (push-function-vars! (cons "static lobject" sym) fun)
@@ -272,6 +273,7 @@
                              (- (length (function-vars fun)) 1)))))
     (push-function-vars! (cons "cont_t" clos) fun)
     (list
+     (list clos ".tag = TAG_CONT")
      (list clos ".env = " cenv)
      (list clos ".fn = (function1_t)" name)
      (list 'cont-call (list "&" clos)
@@ -322,6 +324,7 @@
      (cons (list cenv " = (env_t*)alloca(sizeof(env_t) + sizeof(lobject) * "
                  (- (length (function-args fun)) 2) ")")
            ret))
+    (set! ret (cons (list cenv "->tag = TAG_ENV") ret))
     (set! ret (cons (list cenv "->num = "
                           (- (length (function-args fun)) 1)) ret))
     (set! ret (cons (list cenv "->link = " penv) ret))

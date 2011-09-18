@@ -36,7 +36,7 @@ void init_symbol() {
 
   symbol_string = symbol_string_free = (char*)malloc(symbol_string_size);
   symbol_table = symbol_table_free = (symbol_t*)malloc(symbol_table_size);
-  symbol_rootset = symbol_rootset_free = malloc(symbol_rootset_size);
+  symbol_rootset = symbol_rootset_free = (void**)malloc(symbol_rootset_size);
 
   symbol_string_end = symbol_string + INITIAL_SYMBOL_STRING_SIZE;
   symbol_table_end = symbol_table + INITIAL_SYMBOL_TABLE_ENTRY;
@@ -65,7 +65,7 @@ lobject intern(char* name) {
   symbol_t* p;
   for (p = symbol_table_from; p < symbol_table_free; ++p) {
     if (!strcmp(p->name, name)) {
-      return ADD_TAG(p, TAG_OTHER);
+      return ADD_PTAG(p, PTAG_OTHER);
     }
   }
   if (symbol_table_free == symbol_table_end ||
@@ -76,13 +76,19 @@ lobject intern(char* name) {
   p->tag = TAG_SYMBOL;
   p->name = add_symbol_name(name);
   ++symbol_table_free;
-  return ADD_TAG(p, TAG_OTHER);
+  return ADD_PTAG(p, PTAG_OTHER);
 }
 
 void add_symbol_rootset(void* root) {
   if (symbol_rootset_free == symbol_rootset_end) {
-    fprintf(stderr, "symbol rootset is full\n");
-    exit(1);  /* TODO: realloc */
+    symbol_rootset = realloc(symbol_rootset, symbol_rootset_size * 2);
+    if (!symbol_rootset) {
+      fprintf(stderr, "symbol rootset is full\n");
+      exit(1);
+    }
+    symbol_rootset_free = symbol_rootset + symbol_rootset_size / sizeof(void*);
+    symbol_rootset_size *= 2;
+    symbol_rootset_end = symbol_rootset + symbol_rootset_size / sizeof(void*);
   }
   *symbol_rootset_free = root;
   ++symbol_rootset_free;
