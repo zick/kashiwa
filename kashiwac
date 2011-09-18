@@ -1,0 +1,3 @@
+#!/bin/sh
+gosh -l ./compile.scm -e "(begin (compile-file \"$1\" \"${1%.*}\") (exit))"
+gcc -o ${1%.*} builtin.c ${1%.*}.c

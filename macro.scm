@@ -1,0 +1,35 @@
+(define (implicit-begin exp)
+  (cond ((null? exp) 'undefined)
+        ((null? (cdr exp)) (car exp))
+        (else (cons 'begin exp))))
+
+(define (cond-expand% args)
+  (cond ((null? args)
+         (error "Invalid-syntax"))
+        ((eq? (caar args) 'else)
+         (implicit-begin (cdar args)))
+        (else
+         (list* 'if (caar args)
+                (implicit-begin (cdar args))
+                (if (null? (cdr args))
+                    '()
+                    (list (cond-expand% (cdr args))))))))
+
+(define (macroexpand exp)
+  (cond ((not (pair? exp)) exp)
+        ;; syntax
+        ((eq? (car exp) 'quote) exp)
+        ((eq? (car exp) 'if)
+         (list* 'if (macroexpand (cadr exp)) (macroexpand (caddr exp))
+               (if (null? (cadddr exp))
+                   '()
+                   (list (macroexpand (cadddr exp))))))
+        ((eq? (car exp) 'lambda)
+         (list* 'lambda (cadr exp) (map macroexpand (cddr exp))))
+        ((eq? (car exp) 'set!)
+         (list 'set! (cadr exp) (macroexpand (caddr exp))))
+        ;; macro
+        ((eq? (car exp) 'cond)
+         (cond-expand% (cdr exp)))
+        ;; procedure
+        (else (map macroexpand exp))))
