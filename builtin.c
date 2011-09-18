@@ -2,6 +2,7 @@
 #include "object.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 void builtin_cons(env_t* env, cont_t* cont, lobject x, lobject y) {
   cons_t ret;
@@ -18,6 +19,22 @@ void builtin_car(env_t* env, cont_t* cont, lobject x) {
 void builtin_cdr(env_t* env, cont_t* cont, lobject x) {
   cons_t* c = (cons_t*)REM_TAG(x);
   CONTINUE1(cont, c->cdr);
+}
+
+static void print_other_object(void* obj) {
+  FILE* fp = stdout;  /* TODO */
+  unsigned char tag = *(unsigned char*)obj;
+  switch (tag) {
+  case TAG_SYMBOL:
+    {
+      symbol_t* s = (symbol_t*)obj;
+      fprintf(fp, "%s", s->name);
+      break;
+    }
+  default:
+    fprintf(stderr, "Not printable object\n");
+    exit(1);
+  }
 }
 
 static void print_lobject(lobject x) {
@@ -39,8 +56,12 @@ static void print_lobject(lobject x) {
       printf(")");
       break;
     }
+  case TAG_OTHER:
+    print_other_object((void*)REM_TAG(x));
+    break;
   default:
-    return;  /* Error */
+    fprintf(stderr, "Not printable object\n");
+    exit(1);
   }
 }
 

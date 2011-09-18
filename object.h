@@ -24,4 +24,10 @@ typedef struct {
   void* c;
 } cont_proc_t;
 
+#define TAG_SYMBOL ((2 << 2) | TAG_OTHER)
+typedef struct {
+  unsigned char tag;
+  char* name;
+} symbol_t;
+
 #endif

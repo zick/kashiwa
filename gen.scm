@@ -217,6 +217,8 @@
          (list 'int2num exp))
         ((symbol? exp)
          (gen-lookup-var exp env fun))
+        ((and (pair? exp) (eq? (car exp) 'quote))
+         (gen-quote-code exp env fun))
         ((and (pair? exp) (eq? (car exp) 'lambda))
          (gen-lambda-code exp env)
          (let ((clos (gensym "clos"))
@@ -230,6 +232,23 @@
              (list clos ".fn = (function1_t)" name))
             fun)
            (list "&" clos)))))
+
+(define (gen-quote-code exp env fun)
+  (cond ((number? (cadr exp))
+         (list 'int2num (cadr exp)))
+        ((symbol? (cadr exp))
+         (let ((sym (gensym "sym")))
+           (push-function-vars! (cons "static lobject" sym) fun)
+           (push-function-body!
+            (list 'if (list sym " == 0")
+                  (list
+                   (list sym " = intern(\"" (cadr exp) "\")")
+                   (list "add_symbol_rootset(&" sym ")"))
+                  (list ""))
+            fun)
+           sym))
+        (else
+         (error "Not implemented"))))
 
 (define (gen-if-code exp env fun)
   (list 'if
@@ -275,8 +294,6 @@
 
 (define (gen-apply-code exp env fun)
   (cond ((not (pair? exp)) (error "Compile error"))
-        ((eq? (car exp) 'quote)
-         (error "Not implemented"))
         ((eq? (car exp) 'if)
          (gen-if-code exp env fun))
         ((eq? (car exp) 'set!)

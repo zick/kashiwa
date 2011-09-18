@@ -34,6 +34,7 @@
 (define (write-header-file port)
   (display "#include \"builtin.h\"" port) (newline port)
   (display "#include \"function.h\"" port) (newline port)
+  (display "#include \"symbol.h\"" port) (newline port)
   (newline port)
   (for-each
    (lambda (x)
@@ -74,6 +75,7 @@
   (set-function-args! main '((int . argc) ("char**" argv)))
   (push-function-body!
    (list
+    (list "init_symbol()")
     (list "init()")
     (list "num_toplevel_exps = " (length run-exps))
     (list "toplevel_exps_index = 0"))
