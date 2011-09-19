@@ -14,6 +14,7 @@ typedef unsigned long int lobject;
 #define INT2FIXNUM(n) (((n) << 2) | PTAG_FIXNUM)
 
 #define OBJ_TAG(x) *((unsigned int*)(REM_PTAG(x)))
+#define FORWARDING_ADDRESS(x) *((void**)(REM_PTAG(x)) + 1)
 
 #define TAG_CONT       0
 #define TAG_CONS       1

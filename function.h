@@ -16,17 +16,26 @@ typedef struct {
   lobject vars[1];
 } thunk_t;
 
+#define CALL_THUNK(tk)                                  \
+  switch ((tk)->num) {                                  \
+  case 1: CALL1(tk); break;                             \
+  case 2: CALL2(tk); break;                             \
+  case 3: CALL3(tk); break;                             \
+  case 4: CALL4(tk); break;                             \
+  default: assert(0);                                   \
+  }
+
 #define CALL1(cs)                               \
-  (function1_t((cs)->fn))                       \
+  ((function1_t)((cs)->fn))                     \
   ((cs)->env, (cs)->vars[0])
 #define CALL2(cs)                               \
-  (function2_t((cs)->fn))                       \
+  ((function2_t)((cs)->fn))                     \
   ((cs)->env, (cs)->vars[0], (cs)->vars[1])
 #define CALL3(cs)                                           \
-  (function3_t((cs)->fn))                                   \
+  ((function3_t)((cs)->fn))                                 \
   ((cs)->env, (cs)->vars[0], (cs)->vars[1], (cs)->vars[2])
 #define CALL4(cs)                                                       \
-  (function4_t((cs)->fn))                                               \
+  ((function4_t)((cs)->fn))                                             \
   ((cs)->env, (cs)->vars[0], (cs)->vars[1], (cs)->vars[2], (cs)->vars[3])
 
 #define CONTINUE1(cont, val)                    \

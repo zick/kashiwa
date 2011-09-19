@@ -1,8 +1,8 @@
-#include "object.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "object.h"
 
 #define INITIAL_SYMBOL_TABLE_ENTRY 1024
 #define INITIAL_SYMBOL_STRING_SIZE 8192
@@ -81,7 +81,7 @@ lobject intern(char* name) {
 
 void add_symbol_rootset(void* root) {
   if (symbol_rootset_free == symbol_rootset_end) {
-    symbol_rootset = realloc(symbol_rootset, symbol_rootset_size * 2);
+    symbol_rootset = (void**)realloc(symbol_rootset, symbol_rootset_size * 2);
     if (!symbol_rootset) {
       fprintf(stderr, "symbol rootset is full\n");
       exit(1);

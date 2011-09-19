@@ -335,6 +335,14 @@
             (cons (list cenv "->vars[" i "] = (lobject)" (cdar args)) ret)))
     (reverse ret)))
 
+(define (gen-check-stack-code fun)
+  (let ((name (function-name fun))
+        (args (map cdr (function-args fun))))
+    (append
+     (list* "check_stack(" name ", " (car args) ", " (length (cdr args)) ", "
+            (implode ", " (cdr args)))
+     '(")"))))
+
 (define (gen-lambda-code exp env)
   (if (find-lambda-name exp)
       'already-compiled
@@ -346,6 +354,7 @@
          fun
          (map (lambda (x) (cons 'lobject x)) args))
         (push-function-args! (cons "env_t*" (gensym "penv")) fun)
+        (push-function-body! (gen-check-stack-code fun) fun)
         (if (has-lambda? body)
             (begin (push-function-vars! (cons "env_t*" (gensym "cenv")) fun)
                    (push-function-body! (gen-current-env fun) fun)))

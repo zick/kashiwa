@@ -20,6 +20,7 @@
               init)))
           (else
            (push-function-vars! (cons 'lobject name) global)
+           (push-function-body! (list "add_heap_rootset(&" name ")") init)
            (set-cdr! run-exps
                      (cons (list 'set! name (car args)) (cdr run-exps)))))))
 
@@ -44,6 +45,12 @@
 
 (define (write-c-file port init global main end-of-toplevel-exp header)
   (display (string-append "#include \"" header "\"") port) (newline port)
+  (newline port)
+  (display "#include \"heap.h\"" port) (newline port)
+  (display "#include \"stack.h\"" port) (newline port)
+  (newline port)
+  (display (string-append "#include <assert.h>") port) (newline port)
+  (display (string-append "#include <setjmp.h>") port) (newline port)
   (display (string-append "#include <stdlib.h>") port) (newline port)
   (newline port)
   (display (translate-local-vars (function-vars global) 0) port)
@@ -65,16 +72,21 @@
   (push-function-body!
    (list 'if "++toplevel_exps_index < num_toplevel_exps"
          (list
+          (list "c.tag = TAG_CONT")
+          (list "c.env = NULL")
           (list "c.fn = end_of_toplevel_exp")
           (list "toplevel_exps[toplevel_exps_index](NULL, (lobject)&c)"))
          (list "return"))
    end-of-toplevel-exp))
 
-(define (make-main-function run-exps main end-of-toplevel-exp)
+(define (make-main-function run-exps main end-of-toplevel-exp entry-point)
   (set-function-name! main "main")
   (set-function-args! main '((int . argc) ("char**" argv)))
   (push-function-body!
    (list
+    (list "stack_bottom = (char*)&" (cdar (function-args main)))
+    (list "entry_point = &" entry-point)
+    (list "init_heap()")
     (list "init_symbol()")
     (list "init()")
     (list "num_toplevel_exps = " (length run-exps))
@@ -93,8 +105,12 @@
   (let ((cont (gensym "cont")))
     (push-function-vars! (cons 'cont_t cont) main)
     (push-function-body!
-     (list (list cont ".fn = " (function-name end-of-toplevel-exp))
-           (list "toplevel_exps[0](NULL, (lobject)&" cont ")")
+     (list (list cont ".tag = TAG_CONT")
+           (list cont ".env = NULL")
+           (list cont ".fn = " (function-name end-of-toplevel-exp))
+           (list 'if "!setjmp(*entry_point)"
+                 (list "toplevel_exps[0](NULL, (lobject)&" cont ")")
+                 (list "CALL_THUNK(restart_thunk)"))
            (list "return 0"))
      main)))
 
@@ -104,12 +120,14 @@
         (run-exps (cons 'dummy '()))
         (global (make-function))
         (main (make-function))
-        (end-of-toplevel-exp (make-function)))
+        (end-of-toplevel-exp (make-function))
+        (entry-point (gensym "entry_point")))
     (set-function-name! init "init")
     (set-function-vars!
      global
      (list (cons "static int" 'num_toplevel_exps)
-           (cons "static int" 'toplevel_exps_index)))
+           (cons "static int" 'toplevel_exps_index)
+           (cons "static jmp_buf" entry-point)))
     (call-with-input-file input
       (lambda (inp)
         (do ((exp (read inp) (read inp)))
@@ -123,7 +141,7 @@
                           "]"))
      global)
     (make-end-of-toplevel-exp-function end-of-toplevel-exp)
-    (make-main-function (cdr run-exps) main end-of-toplevel-exp)
+    (make-main-function (cdr run-exps) main end-of-toplevel-exp entry-point)
     (call-with-output-file (string-append output ".h")
       write-header-file)
     (call-with-output-file (string-append output ".c")
