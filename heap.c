@@ -6,30 +6,30 @@
 
 #include "object.h"
 
-#define INITIAL_HEAP_ENTRY 131072
+#define INITIAL_HEAP_SIZE 1048576
 #define INITIAL_HEAP_ROOTSET_ENTRY 256
 
-static lobject* heap;
+static unsigned char* heap;
+static unsigned char* heap_end;
+static unsigned char* heap_from;
+static unsigned char* heap_to;
+static unsigned char* heap_free;
+static unsigned char* heap_scan_start;
 static size_t heap_size;
-static lobject* heap_end;
-static lobject* heap_from;
-static lobject* heap_to;
-static lobject* heap_free;
-static lobject* heap_scan_start;
 
 static lobject** heap_rootset;
-static size_t heap_rootset_size;
 static lobject** heap_rootset_end;
 static lobject** heap_rootset_free;
+static size_t heap_rootset_size;
 
 static int in_heap_gc;
 
 void init_heap() {
-  heap_size = INITIAL_HEAP_ENTRY * sizeof(lobject);
-  heap = heap_free = (lobject*)malloc(heap_size);
-  heap_end = heap + INITIAL_HEAP_ENTRY;
+  heap_size = INITIAL_HEAP_SIZE;
+  heap = heap_free = (unsigned char*)malloc(heap_size);
+  heap_end = heap + heap_size;
   heap_from = heap;
-  heap_to = heap + heap_size / sizeof(lobject) / 2;
+  heap_to = heap + heap_size / 2;
 
   heap_rootset_size = INITIAL_HEAP_ROOTSET_ENTRY * sizeof(lobject*);
   heap_rootset = heap_rootset_free = (lobject**)malloc(heap_rootset_size);
@@ -73,7 +73,7 @@ static lobject copy_other_object(void* p) {
   /* TODO: heap available size check */
   memcpy(heap_free, p, size);
   ret = ADD_PTAG(heap_free, PTAG_OTHER);
-  heap_free += size / sizeof(lobject);
+  heap_free += size;
   return ret;
 }
 
@@ -107,14 +107,15 @@ static lobject copy_lobject(lobject x) {
   OBJ_TAG(p) = TAG_FORWARDING;
   FORWARDING_ADDRESS(p) = heap_free;
   ret = ADD_PTAG(heap_free, GET_PTAG(x));
-  heap_free += size / sizeof(lobject);
+  heap_free += size;
   return ret;
 }
 
 static env_t* copy_env(env_t* env) {
   env_t* ret;
   size_t size;
-  if (env == NULL || (heap <= (lobject*)env && (lobject*)env < heap_end)) {
+  if (env == NULL ||
+      (heap <= (unsigned char*)env && (unsigned char*)env < heap_end)) {
     return env;
   }
   if (OBJ_TAG(env) == TAG_FORWARDING) {
@@ -126,12 +127,12 @@ static env_t* copy_env(env_t* env) {
   OBJ_TAG(env) = TAG_FORWARDING;
   FORWARDING_ADDRESS(env) = heap_free;
   ret = (env_t*)heap_free;
-  heap_free += size / sizeof(lobject);
+  heap_free += size;
   return ret;
 }
 
 static void scan_heap_for_stack_gc() {
-  lobject* p;
+  unsigned char* p;
   int i;
   for (p = heap_scan_start; p < heap_free;) {
     size_t size;
@@ -163,7 +164,7 @@ static void scan_heap_for_stack_gc() {
     default:
       assert(0);
     }
-    p += size / sizeof(lobject);
+    p += size;
   }
 }
 

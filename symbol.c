@@ -9,43 +9,40 @@
 #define INITIAL_SYMBOL_ROOTSET_ENTRY 256
 
 static char* symbol_string;
-static symbol_t* symbol_table;
-static void** symbol_rootset;
-
-static size_t symbol_string_size;
-static size_t symbol_table_size;
-static size_t symbol_rootset_size;
-
 static char* symbol_string_end;
-static symbol_t* symbol_table_end;
-static void** symbol_rootset_end;
-
 static char* symbol_string_to;
 static char* symbol_string_from;
+static char* symbol_string_free;
+static size_t symbol_string_size;
+
+static symbol_t* symbol_table;
+static symbol_t* symbol_table_end;
 static symbol_t* symbol_table_to;
 static symbol_t* symbol_table_from;
-
-static char* symbol_string_free;
 static symbol_t* symbol_table_free;
+static size_t symbol_table_size;
+
+static void** symbol_rootset;
+static size_t symbol_rootset_size;
+static void** symbol_rootset_end;
 static void** symbol_rootset_free;
 
 void init_symbol() {
   symbol_string_size = INITIAL_SYMBOL_STRING_SIZE;
-  symbol_table_size = sizeof(symbol_t) * INITIAL_SYMBOL_TABLE_ENTRY;
-  symbol_rootset_size = sizeof(void*) * INITIAL_SYMBOL_ROOTSET_ENTRY;
-
   symbol_string = symbol_string_free = (char*)malloc(symbol_string_size);
-  symbol_table = symbol_table_free = (symbol_t*)malloc(symbol_table_size);
-  symbol_rootset = symbol_rootset_free = (void**)malloc(symbol_rootset_size);
-
   symbol_string_end = symbol_string + INITIAL_SYMBOL_STRING_SIZE;
-  symbol_table_end = symbol_table + INITIAL_SYMBOL_TABLE_ENTRY;
-  symbol_rootset_end = symbol_rootset + INITIAL_SYMBOL_ROOTSET_ENTRY;
-
   symbol_string_from = symbol_string;
   symbol_string_to = symbol_string + symbol_string_size / 2;
+
+  symbol_table_size = sizeof(symbol_t) * INITIAL_SYMBOL_TABLE_ENTRY;
+  symbol_table = symbol_table_free = (symbol_t*)malloc(symbol_table_size);
+  symbol_table_end = symbol_table + INITIAL_SYMBOL_TABLE_ENTRY;
   symbol_table_from = symbol_table;
   symbol_table_to = symbol_table + symbol_table_size / sizeof(symbol_t*) / 2;
+
+  symbol_rootset_size = sizeof(void*) * INITIAL_SYMBOL_ROOTSET_ENTRY;
+  symbol_rootset = symbol_rootset_free = (void**)malloc(symbol_rootset_size);
+  symbol_rootset_end = symbol_rootset + INITIAL_SYMBOL_ROOTSET_ENTRY;
 }
 
 static char* add_symbol_name(char* name) {
