@@ -100,11 +100,20 @@
    "}" (string #\Newline)))
 
 (define (translate-set! var val)
-  (string-append
-   (ensure-string var)
-   " = (lobject)"
-   (translate-argument val)
-   ";" (string #\Newline)))
+  (if (symbol? var)  ; global variable
+      (string-append
+       (ensure-string var)
+       " = (lobject)"
+       (translate-argument val)
+       ";" (string #\Newline))
+      (string-append
+       "SET_WITH_BARRIER("
+       (ensure-string (reverse (cdddr (reverse var))))  ; environment
+       ", "
+       (ensure-string var)
+       ", "
+       (translate-argument val)
+       ");" (string #\Newline))))
 
 (define (translate-sentence s indent)
   (cond ((not (pair? s)) (error "Translation error"))
