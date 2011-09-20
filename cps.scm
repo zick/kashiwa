@@ -10,7 +10,8 @@
     (cps-trans
      test
      (list 'lambda (list v)
-           (list 'if v (cps-trans then cont) (cps-trans alt cont))))))
+           (list 'if v (cps-trans then cont)
+                 (cps-trans alt (copy-tree cont)))))))
 
 (define (cps-trans-begin args cont)
   (if (null? args)

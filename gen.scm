@@ -159,14 +159,14 @@
   (set! lambda-names
         (cons (cons exp name) lambda-names)))
 (define (find-lambda-name exp)
-  (let ((ret (assoc exp lambda-names)))
+  (let ((ret (assq exp lambda-names)))
     (and ret (cdr ret))))
 (define compiled-results '())
 (define (add-compiled-function name fun)
   (set! compiled-results
         (cons (cons name fun) compiled-results)))
 (define (find-compiled-function name)
-  (let ((ret (assoc name compiled-results)))
+  (let ((ret (assq name compiled-results)))
     (and ret (cdr ret))))
 (define (init-compile)
   (set! lambda-names '())

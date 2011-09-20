@@ -33,6 +33,11 @@
         ((null? (cdr lst)) lst)
         (else (list* (car lst) glue (implode glue (cdr lst))))))
 
+(define (copy-tree tree)
+  (if (pair? tree)
+      (cons (copy-tree (car tree)) (copy-tree (cdr tree)))
+      tree))
+
 (define builtin-list
   '(
     eqv? eq? number? complex? real? rational? integer? exact? inexact?

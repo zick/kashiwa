@@ -15,6 +15,8 @@
              (push-function-body!
               (list
                (list clos " = malloc(sizeof(cont_t))")
+               (list clos "->tag = TAG_CONT")
+               (list clos "->env = NULL")
                (list clos "->fn = (function1_t)" (find-lambda-name cps-lambda))
                (list (car name) " = (lobject)" clos))
               init)))
