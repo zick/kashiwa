@@ -23,7 +23,7 @@ void builtin_cons(env_t* env, cont_t* cont, lobject x, lobject y) {
   ret.tag = TAG_CONS;
   ret.car = x;
   ret.cdr = y;
-  CONTINUE1(cont, ADD_PTAG(&ret, PTAG_CONS));
+  RAW_CONTINUE1(cont, ADD_PTAG(&ret, PTAG_CONS));
 }
 
 void builtin_car(env_t* env, cont_t* cont, lobject x) {
@@ -31,7 +31,7 @@ void builtin_car(env_t* env, cont_t* cont, lobject x) {
     fprintf(stderr, "pair required\n");
     exit(1);
   }
-  CONTINUE1(cont, ((cons_t*)REM_PTAG(x))->car);
+  RAW_CONTINUE1(cont, ((cons_t*)REM_PTAG(x))->car);
 }
 
 void builtin_cdr(env_t* env, cont_t* cont, lobject x) {
@@ -39,7 +39,7 @@ void builtin_cdr(env_t* env, cont_t* cont, lobject x) {
     fprintf(stderr, "pair required\n");
     exit(1);
   }
-  CONTINUE1(cont, ((cons_t*)REM_PTAG(x))->cdr);
+  RAW_CONTINUE1(cont, ((cons_t*)REM_PTAG(x))->cdr);
 }
 
 static void print_other_object(void* obj) {
@@ -85,12 +85,12 @@ static void print_lobject(lobject x) {
 
 void builtin_write(env_t* env, cont_t* cont, lobject x) {
   print_lobject(x);
-  CONTINUE1(cont, x);
+  RAW_CONTINUE1(cont, x);
 }
 
 void builtin_newline(env_t* env, cont_t* cont) {
   puts("");
-  CONTINUE1(cont, 0);  /* 0 means the undefined value */
+  RAW_CONTINUE1(cont, 0);  /* 0 means the undefined value */
 }
 
 void builtin_call_with_current_continuation (env_t* env, cont_t* cont,

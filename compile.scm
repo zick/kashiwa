@@ -18,6 +18,9 @@
                (list clos "->tag = TAG_CONT")
                (list clos "->env = NULL")
                (list clos "->fn = (function1_t)" (find-lambda-name cps-lambda))
+               (list clos "->num_required_args = " (length (cadr cps-lambda)))
+               (list clos "->optional_args = "
+                     (if (has-optional? (cadr cps-lambda)) 1 0))
                (list (car name) " = (lobject)" clos))
               init)))
           (else
@@ -77,6 +80,8 @@
           (list "c.tag = TAG_CONT")
           (list "c.env = NULL")
           (list "c.fn = end_of_toplevel_exp")
+          (list "c.num_required_args = 1")
+          (list "c.optional_args = 0")
           (list "toplevel_exps[toplevel_exps_index](NULL, (lobject)&c)"))
          (list "return"))
    end-of-toplevel-exp))
@@ -111,6 +116,8 @@
      (list (list cont ".tag = TAG_CONT")
            (list cont ".env = NULL")
            (list cont ".fn = " (function-name end-of-toplevel-exp))
+           (list cont ".num_required_args = 1")
+           (list cont ".optional_args = 0")
            (list 'if "!setjmp(*entry_point)"
                  (list "toplevel_exps[0](NULL, (lobject)&" cont ")")
                  (list "CALL_THUNK(restart_thunk)"))

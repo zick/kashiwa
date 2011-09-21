@@ -46,6 +46,8 @@ typedef struct {
   unsigned int tag;
   function1_t fn;
   env_t* env;
+  unsigned int num_required_args;  /* not include the environment argument. */
+  int optional_args;
 } cont_t;
 
 typedef struct {

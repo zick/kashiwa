@@ -38,16 +38,32 @@ typedef struct {
   ((function4_t)((cs)->fn))                                             \
   ((cs)->env, (cs)->vars[0], (cs)->vars[1], (cs)->vars[2], (cs)->vars[3])
 
-#define CONTINUE1(cont, val)                    \
-  if (GET_PTAG(cont) == PTAG_CONT) {            \
-    RAW_CONTINUE1(cont, val);                   \
-  } else {                                      \
-    fprintf(stderr, "Invalid application.\n");  \
-    exit(1);                                    \
+#define CHECK_NUM_ARGS(cont, num)                 \
+  (((cont_t*)(cont))->num_required_args == num || \
+   (((cont_t*)(cont))->num_required_args < num && \
+    ((cont_t*)(cont))->optional_args))
+
+#define CONTINUE1(cont, val)                            \
+  if (GET_PTAG(cont) == PTAG_CONT) {                    \
+    if (CHECK_NUM_ARGS(cont, 1)) {                      \
+      RAW_CONTINUE1(cont, val);                         \
+    } else {                                            \
+      fprintf(stderr, "Wrong number of arguments.\n");  \
+      assert(0);\
+      exit(1);                                          \
+    }                                                   \
+  } else {                                              \
+    fprintf(stderr, "Invalid application.\n");          \
+    exit(1);                                            \
   }
 #define CONTINUE2(cont, val1, val2)                         \
   if (GET_PTAG(cont) == PTAG_CONT) {                        \
-    RAW_CONTINUE2(cont, val1, val2);                        \
+    if (CHECK_NUM_ARGS(cont, 2)) {                          \
+      RAW_CONTINUE2(cont, val1, val2);                      \
+    } else {                                                \
+      fprintf(stderr, "Wrong number of arguments.\n");      \
+      exit(1);                                              \
+    }                                                       \
   } else if (GET_PTAG(cont) == PTAG_OTHER &&                \
              OBJ_TAG(cont) == TAG_CONT_PROC) {              \
     RAW_CONTINUE1(((cont_proc_t*)REM_PTAG(cont))->c, val2); \
@@ -55,19 +71,29 @@ typedef struct {
     fprintf(stderr, "Invalid application.\n");              \
     exit(1);                                                \
   }
-#define CONTINUE3(cont, val1, val2, val3)       \
-  if (GET_PTAG(cont) == PTAG_CONT) {            \
-    RAW_CONTINUE3(cont, val1, val2, val3);      \
-  } else {                                      \
-    fprintf(stderr, "Invalid application.\n");  \
-    exit(1);                                    \
+#define CONTINUE3(cont, val1, val2, val3)               \
+  if (GET_PTAG(cont) == PTAG_CONT) {                    \
+    if (CHECK_NUM_ARGS(cont, 3)) {                      \
+      RAW_CONTINUE3(cont, val1, val2, val3);            \
+    } else {                                            \
+      fprintf(stderr, "Wrong number of arguments.\n");  \
+      exit(1);                                          \
+    }                                                   \
+  } else {                                              \
+    fprintf(stderr, "Invalid application.\n");          \
+    exit(1);                                            \
   }
-#define CONTINUE4(cont, val1, val2, val3, val4)   \
-  if (GET_PTAG(cont) == PTAG_CONT) {              \
-    RAW_CONTINUE4(cont, val1, val2, val3, val4);  \
-  } else {                                        \
-    fprintf(stderr, "Invalid application.\n");    \
-    exit(1);                                      \
+#define CONTINUE4(cont, val1, val2, val3, val4)         \
+  if (GET_PTAG(cont) == PTAG_CONT) {                    \
+    if (CHECK_NUM_ARGS(cont, 4)) {                      \
+      RAW_CONTINUE4(cont, val1, val2, val3, val4);      \
+    } else {                                            \
+      fprintf(stderr, "Wrong number of arguments.\n");  \
+      exit(1);                                          \
+    }                                                   \
+  } else {                                              \
+    fprintf(stderr, "Invalid application.\n");          \
+    exit(1);                                            \
   }
 
 #define RAW_CONTINUE1(cont, val)                                        \

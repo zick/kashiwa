@@ -1,5 +1,10 @@
 (load "./utilities.scm")
 
+(define (has-optional? args)
+  (cond ((null? args) #f)
+        ((pair? args) (has-optional? (cdr args)))
+        (else #t)))
+
 (define (make-function)
   ;; name, arguments, local variables, and body (inverse order)
   (list #f '() '() '()))
@@ -76,9 +81,9 @@
     (implode ", " (map translate-argument args)))
    ");" (string #\Newline)))
 
-(define (translate-cont-call clos args)
+(define (translate-cont-call clos args . safe)
   (string-append
-   "CONTINUE"
+   (if (null? safe) "RAW_CONTINUE" "CONTINUE")
    (ensure-string (length args))
    "("
    (ensure-string clos)
@@ -87,6 +92,9 @@
     string-append
     (implode ", " (map translate-argument args)))
    ");" (string #\Newline)))
+
+(define (translate-safe-cont-call clos args)
+  (translate-cont-call clos args #t))
 
 (define (translate-if test then alt indent)
   (string-append
@@ -125,9 +133,11 @@
         ((eq? (car s) 'builtin-call)
          (translate-builtin-call (cadr s) (caddr s)))
         ((eq? (car s) 'proc-call)
-         (translate-cont-call (cadr s) (caddr s)))
+         (translate-safe-cont-call (cadr s) (caddr s)))
         ((eq? (car s) 'cont-call)
          (translate-cont-call (cadr s) (caddr s)))
+        ((eq? (car s) 'safe-cont-call)
+         (translate-safe-cont-call (cadr s) (caddr s)))
         ((eq? (car s) 'if)
          (translate-if (cadr s) (caddr s) (cadddr s) indent))
         ((eq? (car s) 'set!)
@@ -241,7 +251,10 @@
             (list
              (list clos ".tag = TAG_CONT")
              (list clos ".env = " cenv)
-             (list clos ".fn = (function1_t)" name))
+             (list clos ".fn = (function1_t)" name)
+             (list clos ".num_required_args = " (length (cadr exp)))
+             (list clos ".optional_args = "
+                   (if (has-optional? (cadr exp)) 1 0)))
             fun)
            (list "&" clos)))))
 
@@ -291,7 +304,9 @@
            (map (lambda (x) (gen-literal-code x (cdr env) fun)) args)))))
 
 (define (gen-continuation-code exp env fun)
-  (list 'cont-call
+  (list (if (eq? (car exp) (cdadr (function-args fun)))
+            'cont-call
+            'safe-cont-call)
         (gen-lookup-var (car exp) env fun)
         (map (lambda (x) (gen-literal-code x env fun)) (cdr exp))))
 
