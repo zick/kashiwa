@@ -21,6 +21,7 @@ typedef unsigned long int lobject;
 #define TAG_ENV        2
 #define TAG_CONT_PROC  3
 #define TAG_SYMBOL     4
+#define TAG_BOOLEAN    5
 #define TAG_FORWARDING ~((unsigned int)0)
 
 /* env_t is used for lexical scope.
@@ -62,5 +63,10 @@ typedef struct {
   unsigned int tag;
   char* name;
 } symbol_t;
+
+typedef struct {
+  unsigned int tag;
+  int bool;  /* 0 means #f and 1 means #t. */
+} boolean_t;
 
 #endif

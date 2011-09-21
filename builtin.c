@@ -4,6 +4,20 @@
 #include "function.h"
 #include "object.h"
 
+lobject sharpt;
+lobject sharpf;
+
+void init_builtin() {
+  boolean_t *t, *f;
+  t = (boolean_t*)malloc(sizeof(boolean_t));
+  f = (boolean_t*)malloc(sizeof(boolean_t));
+  t->tag = f->tag = TAG_BOOLEAN;
+  t->bool = 1;
+  f->bool = 0;
+  sharpt = ADD_PTAG(t, PTAG_OTHER);
+  sharpf = ADD_PTAG(f, PTAG_OTHER);
+}
+
 void builtin_cons(env_t* env, cont_t* cont, lobject x, lobject y) {
   cons_t ret;
   ret.tag = TAG_CONS;
@@ -32,11 +46,15 @@ static void print_other_object(void* obj) {
   FILE* fp = stdout;  /* TODO */
   switch (OBJ_TAG(obj)) {
   case TAG_SYMBOL:
-    {
-      symbol_t* s = (symbol_t*)obj;
-      fprintf(fp, "%s", s->name);
-      break;
+    fprintf(fp, "%s", ((symbol_t*)obj)->name);
+    break;
+  case TAG_BOOLEAN:
+    if (obj == (void*)REM_PTAG(sharpf)) {
+      fprintf(fp, "#f");
+    } else {
+      fprintf(fp, "#t");
     }
+    break;
   default:
     fprintf(stderr, "Not printable object\n");
     exit(1);

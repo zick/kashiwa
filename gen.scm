@@ -63,6 +63,7 @@
 (define (translate-argument arg)
   (cond ((and (pair? arg) (eq? (car arg) 'int2fixnum))
          (string-append "INT2FIXNUM(" (ensure-string (cadr arg)) ")"))
+        ((boolean? arg) (if arg "sharpt" "sharpf"))
         (else (ensure-string arg))))
 
 (define (translate-builtin-call fn args)
@@ -226,6 +227,7 @@
          (list 'int2fixnum exp))
         ((symbol? exp)
          (gen-lookup-var exp env fun))
+        ((boolean? exp) exp)
         ((and (pair? exp) (eq? (car exp) 'quote))
          (gen-quote-code exp env fun))
         ((and (pair? exp) (eq? (car exp) 'lambda))
@@ -262,7 +264,7 @@
 
 (define (gen-if-code exp env fun)
   (list 'if
-        (gen-lookup-var (cadr exp) env fun)
+        (list "BOOLTEST(" (gen-lookup-var (cadr exp) env fun) ")")
         (gen-apply-code (caddr exp) env fun)
         (gen-apply-code (cadddr exp) env fun)))
 

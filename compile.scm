@@ -90,6 +90,7 @@
     (list "entry_point = &" entry-point)
     (list "init_heap()")
     (list "init_symbol()")
+    (list "init_builtin()")
     (list "init()")
     (list "num_toplevel_exps = " (length run-exps))
     (list "toplevel_exps_index = 0"))
