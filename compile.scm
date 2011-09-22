@@ -119,7 +119,9 @@
            (list cont ".num_required_args = 1")
            (list cont ".optional_args = 0")
            (list 'if "!setjmp(*entry_point)"
-                 (list "toplevel_exps[0](NULL, (lobject)&" cont ")")
+                 (if (> (length run-exps) 0)
+                     (list "toplevel_exps[0](NULL, (lobject)&" cont ")")
+                     (list ""))
                  (list "CALL_THUNK(restart_thunk)"))
            (list "return 0"))
      main)))
