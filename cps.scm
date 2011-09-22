@@ -34,8 +34,8 @@
       (let ((v (gensym)))
         (cps-trans (cadr args)
                    (list 'lambda (list v)
-                         (list 'set! cont (car args) v))))
-      (list* 'set! cont args)))
+                         (list cont (list 'set! (car args) v)))))
+      (list cont (list* 'set! args))))
 
 (define (cps-trans-evlis rargs rparam acc)
   (if (null? rargs)

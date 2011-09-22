@@ -108,22 +108,6 @@
    (repeat-string indent " ")
    "}" (string #\Newline)))
 
-(define (translate-set! var val)
-  (if (symbol? var)  ; global variable
-      (string-append
-       (ensure-string var)
-       " = (lobject)"
-       (translate-argument val)
-       ";" (string #\Newline))
-      (string-append
-       "SET_WITH_BARRIER("
-       (ensure-string (reverse (cdddr (reverse var))))  ; environment
-       ", "
-       (ensure-string var)
-       ", "
-       (translate-argument val)
-       ");" (string #\Newline))))
-
 (define (translate-sentence s indent)
   (cond ((not (pair? s)) (error "Translation error"))
         ((pair? (car s))
@@ -140,8 +124,6 @@
          (translate-safe-cont-call (cadr s) (caddr s)))
         ((eq? (car s) 'if)
          (translate-if (cadr s) (caddr s) (cadddr s) indent))
-        ((eq? (car s) 'set!)
-         (translate-set! (cadr s) (caddr s)))
         (else (string-append (ensure-string s) ";" (string #\Newline)))))
 
 (define (translate-sentence-list slist indent)
@@ -240,6 +222,8 @@
         ((boolean? exp) exp)
         ((and (pair? exp) (eq? (car exp) 'quote))
          (gen-quote-code exp env fun))
+        ((and (pair? exp) (eq? (car exp) 'set!))
+         (gen-set!-code exp env fun))
         ((and (pair? exp) (eq? (car exp) 'lambda))
          (gen-lambda-code exp env)
          (let ((clos (gensym "clos"))
@@ -310,22 +294,36 @@
         (gen-lookup-var (car exp) env fun)
         (map (lambda (x) (gen-literal-code x env fun)) (cdr exp))))
 
+(define (gen-set!-assign-code var val fun)
+  (push-function-body!
+    (if (symbol? var)  ; global variable
+        (list
+         var
+         " = (lobject)"
+         (translate-argument val))
+        (list
+         "SET_WITH_BARRIER("
+         (ensure-string (reverse (cdddr (reverse var))))  ; environment
+         ", "
+         (ensure-string var)
+         ", "
+         (translate-argument val)
+         ")"))
+    fun))
+
 (define (gen-set!-code exp env fun)
-  ;; (set! cont var val)
-  (list
-   (list 'set!
-         (if (lookup-var (caddr exp) env)
-             (gen-lookup-var (caddr exp) env fun)
-             (caddr exp))  ; global variable
-         (gen-literal-code (cadddr exp) env fun))
-   (gen-apply-code (list (cadr exp) 0) env fun)))
+  (gen-set!-assign-code
+        (if (lookup-var (cadr exp) env)
+            (gen-lookup-var (cadr exp) env fun)
+            (cadr exp))  ; global variable
+        (gen-literal-code (caddr exp) env fun)
+        fun)
+  (list 'int2fixnum 0))  ; undefined value
 
 (define (gen-apply-code exp env fun)
   (cond ((not (pair? exp)) (error "Compile error"))
         ((eq? (car exp) 'if)
          (gen-if-code exp env fun))
-        ((eq? (car exp) 'set!)
-         (gen-set!-code exp env fun))
         ((pair? (car exp))  ; lambda-exp
          (gen-lambda-code (car exp) env)
          (gen-user-closure-application
