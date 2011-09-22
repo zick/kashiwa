@@ -49,7 +49,6 @@ typedef struct {
       RAW_CONTINUE1(cont, val);                         \
     } else {                                            \
       fprintf(stderr, "Wrong number of arguments.\n");  \
-      assert(0);\
       exit(1);                                          \
     }                                                   \
   } else {                                              \
