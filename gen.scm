@@ -1,5 +1,7 @@
 (load "./utilities.scm")
 
+(define num-arguments-limit 4)
+
 (define (has-optional? args)
   (cond ((null? args) #f)
         ((pair? args) (has-optional? (cdr args)))
@@ -51,7 +53,10 @@
             (string-append (ensure-string (car p))
                            " "
                            (ensure-string (cdr p))))
-          (function-args fun))))
+          (let ((args (function-args fun)))  ; args can be ().
+            (if (> (- (length args) 1) num-arguments-limit)
+                (list (car args) (cadr args))
+                args)))))
    ")"))
 
 (define (translate-local-vars vars indent)
@@ -200,7 +205,13 @@
 
 (define (gen-lookup-var-code var link pos fun)
   (if (= link 0)
-      var
+      ;; If the number of arguments is greater than num-arguments-limit,
+      ;; function-args return the list (env args_env original-args ...).
+      ;; args_env->vars[i] hold the value of argument.
+      ;; original-args is used at only compile time.
+      (if (> (- (length (function-args fun)) 1) num-arguments-limit)
+          (list (cdadr (function-args fun)) "->vars[" pos "]")
+          var)
       (list
        (cdar (function-args fun))
        (repeat-string (- link 1) "->link")
@@ -214,6 +225,30 @@
         (gen-lookup-var-code var link pos fun)
         var)))  ; global variable
 
+(define (gen-literal-lambda-code exp env fun)
+  (gen-lambda-code exp env)
+  (let ((clos (gensym "clos"))
+        (cenv
+         (if (> (- (length (function-args fun)) 1) num-arguments-limit)
+          (cdadr (function-args fun))
+          (cdr (list-ref (function-vars fun)
+                         (- (length (function-vars fun)) 1)))))
+        (name (find-lambda-name exp))
+        (len (length (cadr exp))))
+    (push-function-vars! (cons "cont_t" clos) fun)
+    (push-function-body!
+     (list
+      (list clos ".tag = TAG_CONT")
+      (list clos ".env = " cenv)
+      (list clos ".fn = (function1_t)" name)
+      (list clos ".num_required_args = "
+            (if (> len num-arguments-limit) 1 len))
+      (list clos ".optional_args = "
+            (if (and (has-optional? (cadr exp)) (<= len num-arguments-limit))
+                1 0)))
+     fun)
+    (list "&" clos)))
+
 (define (gen-literal-code exp env fun)
   (cond ((number? exp)
          (list 'int2fixnum exp))
@@ -225,22 +260,7 @@
         ((and (pair? exp) (eq? (car exp) 'set!))
          (gen-set!-code exp env fun))
         ((and (pair? exp) (eq? (car exp) 'lambda))
-         (gen-lambda-code exp env)
-         (let ((clos (gensym "clos"))
-               (cenv (cdr (list-ref (function-vars fun)
-                                    (- (length (function-vars fun)) 1))))
-               (name (find-lambda-name exp)))
-           (push-function-vars! (cons "cont_t" clos) fun)
-           (push-function-body!
-            (list
-             (list clos ".tag = TAG_CONT")
-             (list clos ".env = " cenv)
-             (list clos ".fn = (function1_t)" name)
-             (list clos ".num_required_args = " (length (cadr exp)))
-             (list clos ".optional_args = "
-                   (if (has-optional? (cadr exp)) 1 0)))
-            fun)
-           (list "&" clos)))))
+         (gen-literal-lambda-code exp env fun))))
 
 (define (gen-quote-code exp env fun)
   (cond ((number? (cadr exp))
@@ -269,30 +289,59 @@
   (list 'builtin-call (car exp)
         (map (lambda (x) (gen-literal-code x env fun)) (cdr exp))))
 
+(define (gen-application-many-args args fun)
+  (let ((args-env (gensym "args_env")))
+    (push-function-vars! (cons "env_t*" args-env) fun)
+    (push-function-body!
+     (list
+      (list args-env " = alloca(sizeof(env_t) + sizeof(lobject) * "
+            (- (length args) 1) ")")
+      (list args-env "->tag = TAG_ENV")
+      (list args-env "->num = " (length args))
+      (list args-env "->link = NULL"))
+     fun)
+    (do ((args args (cdr args))
+         (i 0 (+ i 1))
+         (acc '()))
+        ((null? args) #t)
+      (push-function-body!
+       (list args-env "->vars[" i "] = (lobject)"
+             (translate-argument (car args)))
+       fun))))
+
 (define (gen-user-proc-application exp env fun)
-  (list 'proc-call (car exp)
-        (map (lambda (x) (gen-literal-code x env fun)) (cdr exp))))
+  (let ((args (map (lambda (x) (gen-literal-code x env fun)) (cdr exp))))
+    (if (> (length args) num-arguments-limit)
+        (begin (gen-application-many-args args fun)
+               (set! args (list (cdar (function-vars fun))))))
+    (list 'proc-call (car exp) args)))
 
 (define (gen-user-closure-application name args env fun)
-  ;; env represents the environment for the lambda expression (not arguments).
-  ;; "cont_t c; c.env = cenv; c.fn = name; CONTINUE(c, args, ...)"
   (let ((clos (gensym "clos"))
-        (cenv (cdr (list-ref (function-vars fun)
-                             (- (length (function-vars fun)) 1)))))
+        (cenv
+         (if (> (- (length (function-args fun)) 1) num-arguments-limit)
+             (cdadr (function-args gun))
+             (cdr (list-ref (function-vars fun)
+                            (- (length (function-vars fun)) 1))))))
     (push-function-vars! (cons "cont_t" clos) fun)
     (list
      (list clos ".tag = TAG_CONT")
      (list clos ".env = " cenv)
      (list clos ".fn = (function1_t)" name)
-     (list 'cont-call (list "&" clos)
-           (map (lambda (x) (gen-literal-code x (cdr env) fun)) args)))))
+     (let ((args (map (lambda (x) (gen-literal-code x env fun)) args)))
+       (if (> (length args) num-arguments-limit)
+           (begin (gen-application-many-args args fun)
+                  (set! args (list (cdar (function-vars fun))))))
+       (list 'cont-call (list "&" clos) args)))))
 
 (define (gen-continuation-code exp env fun)
-  (list (if (eq? (car exp) (cdadr (function-args fun)))
-            'cont-call
-            'safe-cont-call)
+  (list 'safe-cont-call
         (gen-lookup-var (car exp) env fun)
-        (map (lambda (x) (gen-literal-code x env fun)) (cdr exp))))
+        (let ((args (map (lambda (x) (gen-literal-code x env fun)) (cdr exp))))
+          (if (> (length args) num-arguments-limit)
+              (begin (gen-application-many-args args fun)
+                     (set! args (list (cdar (function-vars fun))))))
+          args)))
 
 (define (gen-set!-assign-code var val fun)
   (push-function-body!
@@ -329,7 +378,7 @@
          (gen-user-closure-application
           (find-lambda-name (car exp))
           (cdr exp)
-          (cons (cadar exp) env)
+          env
           fun))
         ((lookup-var (car exp) env)
          (gen-continuation-code exp env fun))
@@ -337,6 +386,18 @@
          (gen-builtin-application exp env fun))
         (else
          (gen-user-proc-application exp env fun))))
+
+(define (gen-current-env-for-many-args fun args)
+  (let ((penv (cdar (function-args fun)))
+        (args (cdadr (function-args fun)))
+        (len (length (cddr (function-args fun)))))
+    (list
+     (list 'if (list args "->tag != TAG_ENV || " args "->num"
+                     (if (has-optional? args) " < " " != ") len)
+           (list (list "fprintf(stderr, \"Wrong number of arguments.\\n\")")
+                 (list "exit(1)"))
+           (list ""))
+     (list args "->link = " penv))))
 
 (define (gen-current-env fun)
   ;; assume that the first variable is cenv and the first argument is penv.
@@ -362,6 +423,8 @@
 (define (gen-check-stack-code fun)
   (let ((name (function-name fun))
         (args (map cdr (function-args fun))))
+    (if (> (- (length args) 1) num-arguments-limit)
+        (set! args (list (car args) (cadr args))))
     (append
      (list* "check_stack(" name ", " (car args) ", " (length (cdr args)) ", "
             (implode ", " (cdr args)))
@@ -377,11 +440,16 @@
         (set-function-args!
          fun
          (map (lambda (x) (cons 'lobject x)) args))
+        (if (> (length args) num-arguments-limit)
+            (push-function-args! (cons "env_t*" (gensym "args")) fun))
         (push-function-args! (cons "env_t*" (gensym "penv")) fun)
         (push-function-body! (gen-check-stack-code fun) fun)
-        (if (has-lambda? body)
-            (begin (push-function-vars! (cons "env_t*" (gensym "cenv")) fun)
-                   (push-function-body! (gen-current-env fun) fun)))
+        (if (> (length args) num-arguments-limit)
+            (push-function-body! (gen-current-env-for-many-args fun args) fun)
+            (if (has-lambda? body)
+                (begin
+                  (push-function-vars! (cons "env_t*" (gensym "cenv")) fun)
+                  (push-function-body! (gen-current-env fun) fun))))
         (add-lambda-name exp (function-name fun))
         (push-function-body!
          (gen-apply-code body (cons args env) fun)
