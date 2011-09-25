@@ -94,12 +94,17 @@ static lobject copy_other_object(void* p) {
   return ret;
 }
 
+static env_t* copy_env(env_t* env);
+
 static lobject copy_lobject(lobject x) {
   lobject ret;
   size_t size;
   void* p;
   switch (GET_PTAG(x)) {
   case PTAG_CONT:
+    if (OBJ_TAG(x) == TAG_ENV) {  /* Not tagged environment can be come. */
+      return (lobject)copy_env((env_t*)x);
+    }
     size = sizeof(cont_t);
     break;
   case PTAG_CONS:
