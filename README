@@ -1,0 +1,18 @@
+= Kashiwa Scheme
+
+In the Kansai area, KASHIWA stands for CHICKEN.
+
+
+== Features
+
+Kashiwa Scheme is a Scheme compiler.
+It translates Scheme code into C code.
+It uses Henry Baker's Cheney on the M.T.A. concept.
+
+
+== How to use
+
+% ./kashiwac program.scm
+% ./program
+
+For now, kashiwac requires Gauche and GCC.
