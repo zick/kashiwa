@@ -275,6 +275,7 @@
 (define (gen-quote-code exp env fun)
   (cond ((number? (cadr exp))
          (list 'int2fixnum (cadr exp)))
+        ((boolean? (cadr exp)) (cadr exp))
         ((null? (cadr exp)) (cadr exp))
         ((symbol? (cadr exp))
          (let ((sym (gensym "sym")))
