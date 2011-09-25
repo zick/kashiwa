@@ -5,6 +5,15 @@
 #include "function.h"
 #include "object.h"
 
+#define VA_ARG_PTAG_CHECK(args, var, ptag)      \
+  {                                             \
+    (var) = va_arg((args), lobject);            \
+    if (GET_PTAG(var) != (ptag)) {              \
+      fprintf(stderr, "Invalid type.\n");       \
+      exit(1);                                  \
+    }                                           \
+  }
+
 lobject sharpt;
 lobject sharpf;
 
@@ -127,4 +136,101 @@ void builtin_call_with_current_continuation (env_t* env, cont_t* cont,
   cp.tag = TAG_CONT_PROC;
   cp.c = cont;
   CONTINUE2(proc, cont, ADD_PTAG(&cp, PTAG_OTHER));
+}
+
+void builtin_eql(env_t* env, unsigned int num_args, ...) {  /* procedure = */
+  va_list args;
+  cont_t* cont;
+  int i, val, eql = 1;
+  lobject x;
+  va_start(args, num_args);
+  cont = va_arg(args, cont_t*);
+  VA_ARG_PTAG_CHECK(args, x, PTAG_FIXNUM);
+  val = FIXNUM2INT(x);
+  for (i = 2; i < num_args; ++i) {
+    VA_ARG_PTAG_CHECK(args, x, PTAG_FIXNUM);
+    if (val != FIXNUM2INT(x)) {
+      eql = 0;
+    }
+  }
+  va_end(args);
+  if (eql) {
+    CONTINUE1(cont, sharpt);
+  } else {
+    CONTINUE1(cont, sharpf);
+  }
+}
+
+void builtin_plus(env_t* env, unsigned int num_args, ...) {  /* procedure + */
+  va_list args;
+  cont_t* cont;
+  int i, sum = 0;
+  va_start(args, num_args);
+  cont = va_arg(args, cont_t*);
+  for (i = 1; i < num_args; ++i) {
+    lobject x;
+    VA_ARG_PTAG_CHECK(args, x, PTAG_FIXNUM);
+    sum += FIXNUM2INT(x);
+  }
+  va_end(args);
+  CONTINUE1(cont, INT2FIXNUM(sum));
+}
+
+void builtin__(env_t* env, unsigned int num_args, ...) {  /* procedure - */
+  va_list args;
+  cont_t* cont;
+  int i, sum;
+  lobject x;
+  va_start(args, num_args);
+  cont = va_arg(args, cont_t*);
+  VA_ARG_PTAG_CHECK(args, x, PTAG_FIXNUM);
+  sum = FIXNUM2INT(x);
+  if (num_args == 2) {
+    va_end(args);
+    CONTINUE1(cont, INT2FIXNUM(-sum));
+  } else {
+    for (i = 2; i < num_args; ++i) {
+      VA_ARG_PTAG_CHECK(args, x, PTAG_FIXNUM);
+      sum -= FIXNUM2INT(x);
+    }
+    va_end(args);
+    CONTINUE1(cont, INT2FIXNUM(sum));
+  }
+}
+
+void builtin_star(env_t* env, unsigned int num_args, ...) {  /* procedure * */
+  va_list args;
+  cont_t* cont;
+  int i, sum = 1;
+  va_start(args, num_args);
+  cont = va_arg(args, cont_t*);
+  for (i = 1; i < num_args; ++i) {
+    lobject x;
+    VA_ARG_PTAG_CHECK(args, x, PTAG_FIXNUM);
+    sum *= FIXNUM2INT(x);
+  }
+  va_end(args);
+  CONTINUE1(cont, INT2FIXNUM(sum));
+}
+
+void builtin_sla(env_t* env, unsigned int num_args, ...) {  /* procedure / */
+  va_list args;
+  cont_t* cont;
+  int i, sum;
+  lobject x;
+  va_start(args, num_args);
+  cont = va_arg(args, cont_t*);
+  VA_ARG_PTAG_CHECK(args, x, PTAG_FIXNUM);
+  sum = FIXNUM2INT(x);
+  if (num_args == 2) {
+    va_end(args);
+    CONTINUE1(cont, INT2FIXNUM(1 / sum));
+  } else {
+    for (i = 2; i < num_args; ++i) {
+      VA_ARG_PTAG_CHECK(args, x, PTAG_FIXNUM);
+      sum /= FIXNUM2INT(x);
+    }
+    va_end(args);
+    CONTINUE1(cont, INT2FIXNUM(sum));
+  }
 }

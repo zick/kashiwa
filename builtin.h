@@ -19,5 +19,10 @@ void builtin_write(env_t* env, unsigned int num_args, ...);
 void builtin_newline(env_t* env, unsigned int num_args, ...);
 void builtin_call_with_current_continuation (env_t* env, cont_t* cont,
                                              lobject proc);
+void builtin_eql(env_t* env, unsigned int num_args, ...);
+void builtin_plus(env_t* env, unsigned int num_args, ...);
+void builtin__(env_t* env, unsigned int num_args, ...);
+void builtin_star(env_t* env, unsigned int num_args, ...);
+void builtin_sla(env_t* env, unsigned int num_args, ...);
 
 #endif
