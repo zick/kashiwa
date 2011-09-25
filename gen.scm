@@ -382,7 +382,7 @@
           fun))
         ((lookup-var (car exp) env)
          (gen-continuation-code exp env fun))
-        ((member (car exp) builtin-list)  ; builtin function
+        ((assoc (car exp) builtin-list)  ; builtin function
          (gen-builtin-application exp env fun))
         (else
          (gen-user-proc-application exp env fun))))
