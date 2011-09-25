@@ -92,6 +92,8 @@ static lobject copy_other_object(void* p) {
 #endif
   /* TODO: heap available size check */
   memcpy(heap_free, p, size);
+  OBJ_TAG(p) = TAG_FORWARDING;
+  FORWARDING_ADDRESS(p) = heap_free;
   ret = ADD_PTAG(heap_free, PTAG_OTHER);
   heap_free += size;
   return ret;
