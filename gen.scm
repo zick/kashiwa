@@ -74,6 +74,7 @@
   (cond ((and (pair? arg) (eq? (car arg) 'int2fixnum))
          (string-append "INT2FIXNUM(" (ensure-string (cadr arg)) ")"))
         ((boolean? arg) (if arg "sharpt" "sharpf"))
+        ((null? arg) "nil")
         (else (ensure-string arg))))
 
 (define (translate-builtin-call fn args . optional?)
@@ -263,6 +264,7 @@
         ((symbol? exp)
          (gen-lookup-var exp env fun))
         ((boolean? exp) exp)
+        ((null? exp) exp)
         ((and (pair? exp) (eq? (car exp) 'quote))
          (gen-quote-code exp env fun))
         ((and (pair? exp) (eq? (car exp) 'set!))
@@ -273,6 +275,7 @@
 (define (gen-quote-code exp env fun)
   (cond ((number? (cadr exp))
          (list 'int2fixnum (cadr exp)))
+        ((null? (cadr exp)) (cadr exp))
         ((symbol? (cadr exp))
          (let ((sym (gensym "sym")))
            (push-function-vars! (cons "static lobject" sym) fun)

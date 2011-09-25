@@ -16,9 +16,11 @@
 
 lobject sharpt;
 lobject sharpf;
+lobject nil;
 
 void init_builtin() {
   boolean_t *t, *f;
+  nil_t* n;
   t = (boolean_t*)malloc(sizeof(boolean_t));
   f = (boolean_t*)malloc(sizeof(boolean_t));
   t->tag = f->tag = TAG_BOOLEAN;
@@ -26,6 +28,9 @@ void init_builtin() {
   f->bool = 0;
   sharpt = ADD_PTAG(t, PTAG_OTHER);
   sharpf = ADD_PTAG(f, PTAG_OTHER);
+  n = (nil_t*)malloc(sizeof(nil_t));
+  n->tag = TAG_NIL;
+  nil = ADD_PTAG(n, PTAG_OTHER);
 }
 
 void builtin_cons(env_t* env, cont_t* cont, lobject x, lobject y) {
@@ -64,6 +69,9 @@ static void print_other_object(void* obj) {
     } else {
       fprintf(fp, "#t");
     }
+    break;
+  case TAG_NIL:
+    fprintf(fp, "()");
     break;
   default:
     fprintf(stderr, "Not printable object\n");

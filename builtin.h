@@ -10,6 +10,7 @@
 
 extern lobject sharpt;
 extern lobject sharpf;
+extern lobject nil;
 
 void init_builtin();
 void builtin_cons(env_t* env, cont_t* cont, lobject x, lobject y);
