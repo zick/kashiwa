@@ -76,15 +76,21 @@
         ((boolean? arg) (if arg "sharpt" "sharpf"))
         (else (ensure-string arg))))
 
-(define (translate-builtin-call fn args)
+(define (translate-builtin-call fn args . optional?)
   (string-append
    "builtin_"
    (lisp-name-to-c-name (ensure-string fn))
-   "((void*)0, (cont_t*)"
+   (if (null? optional?)
+       "((void*)0, (cont_t*)"
+       (string-append
+        "((void*)0, " (number->string (length args)) ", (cont_t*)"))
    (apply
     string-append
     (implode ", " (map translate-argument args)))
    ");" (string #\Newline)))
+
+(define (translate-builtin-optional-call fn args)
+  (translate-builtin-call fn args #t))
 
 (define (translate-cont-call clos args . safe)
   (string-append
@@ -121,6 +127,8 @@
                          (translate-sentence-list s indent))))
         ((eq? (car s) 'builtin-call)
          (translate-builtin-call (cadr s) (caddr s)))
+        ((eq? (car s) 'builtin-optional-call)
+         (translate-builtin-optional-call (cadr s) (caddr s)))
         ((eq? (car s) 'proc-call)
          (translate-safe-cont-call (cadr s) (caddr s)))
         ((eq? (car s) 'cont-call)
@@ -286,8 +294,16 @@
         (gen-apply-code (cadddr exp) env fun)))
 
 (define (gen-builtin-application exp env fun)
-  (list 'builtin-call (car exp)
-        (map (lambda (x) (gen-literal-code x env fun)) (cdr exp))))
+  (let* ((builtin (assoc (car exp) builtin-list))
+         (num-required-args (+ (cadr builtin) 1))  ; Add a continuation.
+         (optional-args? (= (caddr builtin) 1))
+         (num-args (length (cdr exp))))
+    (if (or (= num-required-args num-args)
+            (and (< num-required-args num-args) optional-args?))
+        (list (if optional-args? 'builtin-optional-call 'builtin-call)
+              (car exp)
+              (map (lambda (x) (gen-literal-code x env fun)) (cdr exp)))
+        (error "Wrong number of arguments."))))
 
 (define (gen-application-many-args args fun)
   (let ((args-env (gensym "args_env")))

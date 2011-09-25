@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -83,12 +84,39 @@ static void print_lobject(lobject x) {
   }
 }
 
-void builtin_write(env_t* env, cont_t* cont, lobject x) {
+void builtin_write(env_t* env, unsigned int num_args, ...) {
+  va_list args;
+  cont_t* cont;
+  lobject x, port;
+  if (num_args > 3) {
+    fprintf(stderr, "Wrong number of arguments.\n");
+    exit(1);
+  }
+  va_start(args, num_args);
+  cont = va_arg(args, cont_t*);
+  x = va_arg(args, lobject);
+  if (num_args == 3) {
+    port = va_arg(args, lobject);  /* TODO */
+  }
+  va_end(args);
   print_lobject(x);
   RAW_CONTINUE1(cont, x);
 }
 
-void builtin_newline(env_t* env, cont_t* cont) {
+void builtin_newline(env_t* env, unsigned int num_args, ...) {
+  va_list args;
+  cont_t* cont;
+  lobject port;
+  if (num_args > 2) {
+    fprintf(stderr, "Wrong number of arguments.\n");
+    exit(1);
+  }
+  va_start(args, num_args);
+  cont = va_arg(args, cont_t*);
+  if (num_args  == 2) {
+    port = va_arg(args, lobject);  /* TODO */
+  }
+  va_end(args);
   puts("");
   RAW_CONTINUE1(cont, 0);  /* 0 means the undefined value */
 }
