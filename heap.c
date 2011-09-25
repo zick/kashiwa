@@ -87,6 +87,9 @@ static lobject copy_other_object(void* p) {
   default:
     assert(0);
   }
+#ifdef GC_VERBOSE
+  fprintf(stderr, "copy %p -> %p (tag:%x)\n", p, heap_free, (int)OBJ_TAG(p));
+#endif
   /* TODO: heap available size check */
   memcpy(heap_free, p, size);
   ret = ADD_PTAG(heap_free, PTAG_OTHER);
@@ -124,6 +127,9 @@ static lobject copy_lobject(lobject x) {
   if (OBJ_TAG(p) == TAG_FORWARDING) {
     return ADD_PTAG(FORWARDING_ADDRESS(p), GET_PTAG(x));
   }
+#ifdef GC_VERBOSE
+  fprintf(stderr, "copy %p -> %p (tag:%x)\n", p, heap_free, (int)OBJ_TAG(x));
+#endif
   /* TODO: heap available size check */
   memcpy(heap_free, p, size);
   OBJ_TAG(p) = TAG_FORWARDING;
@@ -144,6 +150,9 @@ static env_t* copy_env(env_t* env) {
     return FORWARDING_ADDRESS(env);
   }
   size = sizeof(env_t) + sizeof(lobject) * (env->num - 1);
+#ifdef GC_VERBOSE
+  fprintf(stderr, "copy %p -> %p (env)\n", env, heap_free);
+#endif
   /* TODO: heap available size check */
   memcpy(heap_free, env, size);
   OBJ_TAG(env) = TAG_FORWARDING;
@@ -189,6 +198,9 @@ static void scan_heap_for_stack_gc() {
   unsigned char* p;
   size_t size;
   for (p = heap_scan_start; p < heap_free;) {
+#ifdef GC_VERBOSE
+    fprintf(stderr, "scan %p (tag:%x)\n", p, OBJ_TAG(p));
+#endif
     scan_lobject((void*)p, &size);
     p += size;
   }
@@ -202,6 +214,9 @@ void stack_gc(thunk_t* thunk) {
   int i;
   lobject** p;
   void** vp;
+#ifdef GC_VERBOSE
+  fprintf(stderr, "*** stack gc begin\n");
+#endif
   heap_scan_start = heap_free;
   for (p = heap_rootset; p < heap_rootset_free; ++p) {
     if (**p) {
@@ -218,6 +233,9 @@ void stack_gc(thunk_t* thunk) {
   }
   scan_heap_for_stack_gc();
   reset_remset();
+#ifdef GC_VERBOSE
+  fprintf(stderr, "*** stack gc end\n");
+#endif
 }
 
 void add_heap_rootset(lobject* root) {
