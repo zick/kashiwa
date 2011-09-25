@@ -16,6 +16,7 @@ extern unsigned char* heap_end;
 
 void init_heap();
 void stack_gc(thunk_t* thunk);
+void heap_gc(thunk_t* thunk);
 void add_heap_rootset(lobject* root);
 void write_barrier(void* obj, lobject oldval, lobject nextval);
 

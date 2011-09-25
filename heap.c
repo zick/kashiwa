@@ -1,6 +1,7 @@
 #include "heap.h"
 
 #include <assert.h>
+#include <setjmp.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -34,6 +35,8 @@ static size_t heap_remset_size;
 
 static int in_heap_gc;
 
+static jmp_buf gc_entry_point;
+
 void init_heap() {
   heap_size = INITIAL_HEAP_SIZE;
   heap = heap_free = (unsigned char*)malloc(heap_size);
@@ -54,20 +57,23 @@ void init_heap() {
 }
 
 static int in_target_space(void* p) {
-  if (!in_heap_gc) {  /* stack gc */
-    int dummy;
-    /* assume that the stack is allocated at the end of the memory. */
-    if ((void*)&dummy < p) {
-      return 1;
-    }
+  int dummy;
+  /* assume that the stack is allocated at the end of the memory. */
+  if ((void*)&dummy < p) {  /* stack and heap gc */
+    return 1;
+  }
+  if (!in_heap_gc) {  /* stack gc only */
     return 0;
   }
+  /* heap gc only */
   if ((heap_from < heap_to && (void*)heap_from <= p && p < (void*)heap_to) ||
       (heap_from > heap_to && (void*)heap_from <= p && p < (void*)heap_end)) {
     return 1;
   }
   return 0;
 }
+
+static lobject copy_lobject(lobject x);
 
 static lobject copy_other_object(void* p) {
   lobject ret;
@@ -83,6 +89,10 @@ static lobject copy_other_object(void* p) {
     size = sizeof(symbol_t);
     break;
   case TAG_FORWARDING:
+    if (in_heap_gc && in_target_space(FORWARDING_ADDRESS(p))) {
+      FORWARDING_ADDRESS(p) = (void*)
+        REM_PTAG(copy_lobject(ADD_PTAG(FORWARDING_ADDRESS(p), PTAG_OTHER)));
+    }
     return ADD_PTAG(FORWARDING_ADDRESS(p), PTAG_OTHER);
   default:
     assert(0);
@@ -90,7 +100,13 @@ static lobject copy_other_object(void* p) {
 #ifdef GC_VERBOSE
   fprintf(stderr, "copy %p -> %p (tag:%x)\n", p, heap_free, (int)OBJ_TAG(p));
 #endif
-  /* TODO: heap available size check */
+  if (!in_heap_gc && heap_free + size >= heap_from + heap_size / 2) {
+    longjmp(gc_entry_point, 1);
+  } else if (in_heap_gc && heap_free + size >= heap_to + heap_size / 2) {
+    /* TODO: realloc */
+    fprintf(stderr, "heap is full.\n");
+    exit(1);
+  }
   memcpy(heap_free, p, size);
   OBJ_TAG(p) = TAG_FORWARDING;
   FORWARDING_ADDRESS(p) = heap_free;
@@ -127,12 +143,22 @@ static lobject copy_lobject(lobject x) {
     return x;
   }
   if (OBJ_TAG(p) == TAG_FORWARDING) {
+    if (in_heap_gc && in_target_space(FORWARDING_ADDRESS(p))) {
+      FORWARDING_ADDRESS(p) = (void*)
+        REM_PTAG(copy_lobject(ADD_PTAG(FORWARDING_ADDRESS(p), GET_PTAG(x))));
+    }
     return ADD_PTAG(FORWARDING_ADDRESS(p), GET_PTAG(x));
   }
 #ifdef GC_VERBOSE
   fprintf(stderr, "copy %p -> %p (tag:%x)\n", p, heap_free, (int)OBJ_TAG(x));
 #endif
-  /* TODO: heap available size check */
+  if (!in_heap_gc && heap_free + size >= heap_from + heap_size / 2) {
+    longjmp(gc_entry_point, 1);
+  } else if (in_heap_gc && heap_free + size >= heap_to + heap_size / 2) {
+    /* TODO: realloc */
+    fprintf(stderr, "heap is full.\n");
+    exit(1);
+  }
   memcpy(heap_free, p, size);
   OBJ_TAG(p) = TAG_FORWARDING;
   FORWARDING_ADDRESS(p) = heap_free;
@@ -144,18 +170,26 @@ static lobject copy_lobject(lobject x) {
 static env_t* copy_env(env_t* env) {
   env_t* ret;
   size_t size;
-  if (env == NULL ||
-      (heap <= (unsigned char*)env && (unsigned char*)env < heap_end)) {
+  if (env == NULL || !in_target_space(env)) {
     return env;
   }
   if (OBJ_TAG(env) == TAG_FORWARDING) {
+    if (in_heap_gc && in_target_space(FORWARDING_ADDRESS(env))) {
+      FORWARDING_ADDRESS(env) = (void*)copy_env(FORWARDING_ADDRESS(env));
+    }
     return FORWARDING_ADDRESS(env);
   }
   size = sizeof(env_t) + sizeof(lobject) * (env->num - 1);
 #ifdef GC_VERBOSE
   fprintf(stderr, "copy %p -> %p (env)\n", env, heap_free);
 #endif
-  /* TODO: heap available size check */
+  if (!in_heap_gc && heap_free + size >= heap_from + heap_size / 2) {
+    longjmp(gc_entry_point, 1);
+  } else if (in_heap_gc && heap_free + size >= heap_to + heap_size / 2) {
+    /* TODO: realloc */
+    fprintf(stderr, "heap is full.\n");
+    exit(1);
+  }
   memcpy(heap_free, env, size);
   OBJ_TAG(env) = TAG_FORWARDING;
   FORWARDING_ADDRESS(env) = heap_free;
@@ -212,13 +246,10 @@ static void reset_remset() {
   heap_remset_free = heap_remset_tail = heap_remset;
 }
 
-void stack_gc(thunk_t* thunk) {
+static void do_stack_gc(thunk_t* thunk) {
   int i;
   lobject** p;
   void** vp;
-#ifdef GC_VERBOSE
-  fprintf(stderr, "*** stack gc begin\n");
-#endif
   heap_scan_start = heap_free;
   for (p = heap_rootset; p < heap_rootset_free; ++p) {
     if (**p) {
@@ -235,6 +266,18 @@ void stack_gc(thunk_t* thunk) {
   }
   scan_heap_for_stack_gc();
   reset_remset();
+}
+
+void stack_gc(thunk_t* thunk) {
+  assert(!in_heap_gc);
+#ifdef GC_VERBOSE
+  fprintf(stderr, "*** stack gc begin\n");
+#endif
+  if (!setjmp(gc_entry_point)) {
+    do_stack_gc(thunk);
+  } else {
+    heap_gc(thunk);
+  }
 #ifdef GC_VERBOSE
   fprintf(stderr, "*** stack gc end\n");
 #endif
@@ -303,4 +346,48 @@ void write_barrier(void* root, lobject oldval, lobject nextval) {
   if (!position && next_in_stack) {  /* add to remember set */
     add_heap_remset(root);
   }
+}
+
+static void scan_heap_for_heap_gc() {
+  unsigned char* p;
+  size_t size;
+  for (p = heap_to; p < heap_free;) {
+#ifdef GC_VERBOSE
+    fprintf(stderr, "scan %p (tag:%x)\n", p, OBJ_TAG(p));
+#endif
+    scan_lobject((void*)p, &size);
+    p += size;
+  }
+}
+
+void heap_gc(thunk_t* thunk) {
+  int i;
+  lobject** p;
+  unsigned char* tmp;
+  assert(!in_heap_gc);
+  in_heap_gc = 1;
+#ifdef GC_VERBOSE
+  fprintf(stderr, "*** heap gc begin\n");
+#endif
+  heap_free = heap_to;
+  for (p = heap_rootset; p < heap_rootset_free; ++p) {
+    if (**p) {
+      **p = copy_lobject(**p);
+    }
+  }
+  if (thunk) {
+    thunk->env = copy_env(thunk->env);
+    for (i = 0; i < thunk->num; ++i) {
+      thunk->vars[i] = copy_lobject(thunk->vars[i]);
+    }
+  }
+  scan_heap_for_heap_gc();
+  reset_remset();
+  tmp = heap_from;
+  heap_from = heap_to;
+  heap_to = tmp;
+#ifdef GC_VERBOSE
+  fprintf(stderr, "*** heap gc end\n");
+#endif
+  in_heap_gc = 0;
 }
