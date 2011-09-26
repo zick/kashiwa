@@ -35,7 +35,8 @@ static size_t heap_remset_size;
 
 static int in_heap_gc;
 
-static jmp_buf gc_entry_point;
+static jmp_buf stack_gc_entry_point;
+static jmp_buf heap_gc_entry_point;
 
 void init_heap() {
   heap_size = INITIAL_HEAP_SIZE;
@@ -66,8 +67,8 @@ static int in_target_space(void* p) {
     return 0;
   }
   /* heap gc only */
-  if ((heap_from < heap_to && (void*)heap_from <= p && p < (void*)heap_to) ||
-      (heap_from > heap_to && (void*)heap_from <= p && p < (void*)heap_end)) {
+  if (heap_from <= (unsigned char*)p &&
+      (unsigned char*)p < heap_from + heap_size / 2) {
     return 1;
   }
   return 0;
@@ -101,11 +102,9 @@ static lobject copy_other_object(void* p) {
   fprintf(stderr, "copy %p -> %p (tag:%x)\n", p, heap_free, (int)OBJ_TAG(p));
 #endif
   if (!in_heap_gc && heap_free + size >= heap_from + heap_size / 2) {
-    longjmp(gc_entry_point, 1);
+    longjmp(stack_gc_entry_point, 1);
   } else if (in_heap_gc && heap_free + size >= heap_to + heap_size / 2) {
-    /* TODO: realloc */
-    fprintf(stderr, "heap is full.\n");
-    exit(1);
+    longjmp(heap_gc_entry_point, 1);
   }
   memcpy(heap_free, p, size);
   OBJ_TAG(p) = TAG_FORWARDING;
@@ -153,11 +152,9 @@ static lobject copy_lobject(lobject x) {
   fprintf(stderr, "copy %p -> %p (tag:%x)\n", p, heap_free, (int)OBJ_TAG(x));
 #endif
   if (!in_heap_gc && heap_free + size >= heap_from + heap_size / 2) {
-    longjmp(gc_entry_point, 1);
+    longjmp(stack_gc_entry_point, 1);
   } else if (in_heap_gc && heap_free + size >= heap_to + heap_size / 2) {
-    /* TODO: realloc */
-    fprintf(stderr, "heap is full.\n");
-    exit(1);
+    longjmp(heap_gc_entry_point, 1);
   }
   memcpy(heap_free, p, size);
   OBJ_TAG(p) = TAG_FORWARDING;
@@ -184,11 +181,9 @@ static env_t* copy_env(env_t* env) {
   fprintf(stderr, "copy %p -> %p (env)\n", env, heap_free);
 #endif
   if (!in_heap_gc && heap_free + size >= heap_from + heap_size / 2) {
-    longjmp(gc_entry_point, 1);
+    longjmp(stack_gc_entry_point, 1);
   } else if (in_heap_gc && heap_free + size >= heap_to + heap_size / 2) {
-    /* TODO: realloc */
-    fprintf(stderr, "heap is full.\n");
-    exit(1);
+    longjmp(heap_gc_entry_point, 1);
   }
   memcpy(heap_free, env, size);
   OBJ_TAG(env) = TAG_FORWARDING;
@@ -273,7 +268,7 @@ void stack_gc(thunk_t* thunk) {
 #ifdef GC_VERBOSE
   fprintf(stderr, "*** stack gc begin\n");
 #endif
-  if (!setjmp(gc_entry_point)) {
+  if (!setjmp(stack_gc_entry_point)) {
     do_stack_gc(thunk);
   } else {
     heap_gc(thunk);
@@ -360,15 +355,10 @@ static void scan_heap_for_heap_gc() {
   }
 }
 
-void heap_gc(thunk_t* thunk) {
+static void do_heap_gc(thunk_t* thunk) {
   int i;
   lobject** p;
   unsigned char* tmp;
-  assert(!in_heap_gc);
-  in_heap_gc = 1;
-#ifdef GC_VERBOSE
-  fprintf(stderr, "*** heap gc begin\n");
-#endif
   heap_free = heap_to;
   for (p = heap_rootset; p < heap_rootset_free; ++p) {
     if (**p) {
@@ -386,6 +376,45 @@ void heap_gc(thunk_t* thunk) {
   tmp = heap_from;
   heap_from = heap_to;
   heap_to = tmp;
+}
+
+void heap_gc(thunk_t* thunk) {
+  int finished = 0;
+  unsigned char* prev_heap = NULL;
+  assert(!in_heap_gc);
+  in_heap_gc = 1;
+#ifdef GC_VERBOSE
+  fprintf(stderr, "*** heap gc begin\n");
+#endif
+  while (!finished) {
+    if (!setjmp(heap_gc_entry_point)) {
+      do_heap_gc(thunk);
+      finished = 1;
+    } else {
+      /* Assign the whole (old) heap to 'from space' and allocate new heap.
+       * Assign semi-space of the new heap to 'to space' and GC again.
+       * If the new heap is already allocated, quit Kashiwa.
+       */
+      heap_from = heap;
+      heap_size *= 2;  /* TODO: calculate safe size */
+      heap = (unsigned char*)malloc(heap_size);
+      if (!heap || prev_heap) {
+        fprintf(stderr, "heap is full.\n");
+        exit(1);
+      }
+      prev_heap = heap_from;
+      heap_to = heap + heap_size / 2;
+      heap_end = heap + heap_size;
+#ifdef GC_VERBOSE
+      fprintf(stderr, "expand heap: %lu bytes -> %lu bytes\n",
+              heap_size / 2, heap_size);
+#endif
+    }
+  }
+  if (prev_heap) {
+    free(prev_heap);
+    heap_to = heap;  /* do_heap_gc swapped heap_from with heap_to */
+  }
 #ifdef GC_VERBOSE
   fprintf(stderr, "*** heap gc end\n");
 #endif
