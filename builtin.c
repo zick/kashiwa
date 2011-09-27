@@ -242,3 +242,29 @@ void builtin_sla(env_t* env, unsigned int num_args, ...) {  /* procedure / */
     CONTINUE1(cont, INT2FIXNUM(sum));
   }
 }
+
+void builtin_list(env_t* env, unsigned int num_args, ...) {
+  va_list args;
+  cont_t* cont;
+  va_start(args, num_args);
+  cont = va_arg(args, cont_t*);
+  if (num_args == 1) {
+    va_end(args);
+    CONTINUE1(cont, nil);
+  } else {
+    int i;
+    cons_t* p;
+    p = alloca(sizeof(cons_t) * (num_args - 1));
+    for (i = 1; i < num_args; ++i) {
+      p[i - 1].tag = TAG_CONS;
+      p[i - 1].car = va_arg(args, lobject);
+      if (i == num_args - 1) {
+        p[i - 1].cdr = nil;
+      } else {
+        p[i - 1].cdr = ADD_PTAG(p + i, PTAG_CONS);
+      }
+    }
+    va_end(args);
+    CONTINUE1(cont, ADD_PTAG(p, PTAG_CONS));
+  }
+}
