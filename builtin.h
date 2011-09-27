@@ -26,5 +26,6 @@ void builtin__(env_t* env, unsigned int num_args, ...);
 void builtin_star(env_t* env, unsigned int num_args, ...);
 void builtin_sla(env_t* env, unsigned int num_args, ...);
 void builtin_list(env_t* env, unsigned int num_args, ...);
+void builtin_liststar(env_t* env, unsigned int num_args, ...);
 
 #endif

@@ -15,10 +15,22 @@
                     '()
                     (list (cond-expand% (cdr args))))))))
 
+(define (quote-expand args)
+  (define (expand-list lst acc)
+    (cond ((pair? lst)
+           (expand-list (cdr lst) (cons (quote-expand (list (car lst))) acc)))
+          ((null? lst) (cons 'list (reverse acc)))
+          (else
+           (cons 'list* (reverse (cons (quote-expand (list lst)) acc))))))
+  (if (pair? (car args))
+      (expand-list (car args) '())
+      (cons 'quote args)))
+
 (define (macroexpand exp)
   (cond ((not (pair? exp)) exp)
         ;; syntax
-        ((eq? (car exp) 'quote) exp)
+        ((eq? (car exp) 'quote)
+         (quote-expand (cdr exp)))
         ((eq? (car exp) 'if)
          (list* 'if (macroexpand (cadr exp)) (macroexpand (caddr exp))
                (if (null? (cadddr exp))

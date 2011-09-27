@@ -232,4 +232,7 @@
     (load 1 0)  ; optional procedure
     (transcript-on 1 0)  ; optional procedure
     (transcript-off 0 0)  ; optional procedure
+
+    ;; KASHIWA extension
+    (list* 0 1)
     ))

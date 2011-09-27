@@ -268,3 +268,33 @@ void builtin_list(env_t* env, unsigned int num_args, ...) {
     CONTINUE1(cont, ADD_PTAG(p, PTAG_CONS));
   }
 }
+
+void builtin_liststar(env_t* env, unsigned int num_args, ...) {
+  va_list args;
+  cont_t* cont;
+  va_start(args, num_args);
+  cont = va_arg(args, cont_t*);
+  if (num_args == 1) {
+    va_end(args);
+    CONTINUE1(cont, nil);
+  } else if (num_args == 2) {
+    lobject ret;
+    ret = va_arg(args, lobject);
+    va_end(args);
+    CONTINUE1(cont, ret);
+  } else {
+    int i;
+    cons_t* p;
+    p = alloca(sizeof(cons_t) * (num_args - 2));
+    for (i = 1; i < num_args - 1; ++i) {
+      p[i - 1].tag = TAG_CONS;
+      p[i - 1].car = va_arg(args, lobject);
+      if (i < num_args - 2) {
+        p[i - 1].cdr = ADD_PTAG(p + i, PTAG_CONS);
+      }
+    }
+    p[num_args - 3].cdr = va_arg(args, lobject);
+    va_end(args);
+    CONTINUE1(cont, ADD_PTAG(p, PTAG_CONS));
+  }
+}
