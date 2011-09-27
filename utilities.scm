@@ -38,6 +38,13 @@
       (cons (copy-tree (car tree)) (copy-tree (cdr tree)))
       tree))
 
+(define (improper-list->proper-list lst)
+  (define (iter lst acc)
+    (cond ((null? lst) (reverse acc))
+          ((pair? lst) (iter (cdr lst) (cons (car lst) acc)))
+          (else (reverse (cons lst acc)))))
+  (iter lst '()))
+
 (define builtin-list
   '(
     ;; 6.1. Equivalence predicates

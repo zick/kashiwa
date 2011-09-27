@@ -8,7 +8,7 @@
     (cond ((pair? name)
            (let* ((cps-lambda
                    (cadr (cps (macroexpand (list* 'lambda (cdr name) args)))))
-                  (len (length (cadr cps-lambda)))
+                  (len (length (improper-list->proper-list (cadr cps-lambda))))
                   (clos (gensym "clos")))
              (gen cps-lambda)
              (push-function-vars! (cons 'lobject (car name)) global)
@@ -19,12 +19,9 @@
                (list clos "->tag = TAG_CONT")
                (list clos "->env = NULL")
                (list clos "->fn = (function1_t)" (find-lambda-name cps-lambda))
-               (list clos "->num_required_args = "
-                     (if (> len num-arguments-limit) 1 len))
+               (list clos "->num_required_args = " len)
                (list clos "->optional_args = "
-                     (if (and (has-optional? (cadr cps-lambda))
-                              (<= len num-argument-limit))
-                         1 0))
+                     (if (has-optional? (cadr cps-lambda)) 1 0))
                (list (car name) " = (lobject)" clos))
               init)))
           (else
