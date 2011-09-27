@@ -1,3 +1,23 @@
 #!/bin/sh
+OPT=`getopt gO $*`
+if [ "$?" -ne 0 ]; then
+  exit 1
+fi
+set -- $OPT
+for i; do
+    case $i in
+        --) break;;
+        -g) opt_g=true;;
+        -O) opt_O=true;;
+    esac
+    shift
+done
+shift
 gosh -l ./compile.scm -e "(begin (compile-file \"$1\" \"${1%.*}\") (exit))"
-gcc -o ${1%.*} builtin.c symbol.c heap.c stack.c function.c ${1%.*}.c
+if [ $opt_g ]; then
+    gcc -g -Wall -o ${1%.*} builtin.c symbol.c heap.c stack.c function.c ${1%.*}.c
+elif [ $opt_O ]; then
+    gcc -O2 -o ${1%.*} builtin.c symbol.c heap.c stack.c function.c ${1%.*}.c
+else
+    gcc -o ${1%.*} builtin.c symbol.c heap.c stack.c function.c ${1%.*}.c
+fi
