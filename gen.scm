@@ -232,13 +232,18 @@
        (repeat-string (- link 1) "->link")
        "->vars[" pos "]")))
 
+(define (gen-builtin-as-variable var)
+  (list "builtin_clos_" (lisp-name-to-c-name (ensure-string var))))
+
 (define (gen-lookup-var var env fun)
   (let* ((loc (lookup-var var env))
          (link (and loc (car loc)))
          (pos (and loc (cadr loc))))
-    (if loc
-        (gen-lookup-var-code var link pos fun)
-        var)))  ; global variable
+    (cond (loc
+           (gen-lookup-var-code var link pos fun))
+          ((assoc var builtin-list)
+           (gen-builtin-as-variable var))
+          (else var))))  ; global variable
 
 (define (gen-literal-lambda-code exp env fun)
   (gen-lambda-code exp env)

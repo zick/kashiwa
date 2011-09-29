@@ -1,3 +1,5 @@
+#include "builtin.h"
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,23 +16,54 @@
     }                                           \
   }
 
+#define PTAG_CHECK(var, ptag)                   \
+  if (GET_PTAG(var) != (ptag)) {                \
+    fprintf(stderr, "Invalid type.\n");         \
+    exit(1);                                    \
+  }                                             \
+
 lobject sharpt;
 lobject sharpf;
 lobject nil;
 
-void init_builtin() {
-  boolean_t *t, *f;
-  nil_t* n;
-  t = (boolean_t*)malloc(sizeof(boolean_t));
-  f = (boolean_t*)malloc(sizeof(boolean_t));
-  t->tag = f->tag = TAG_BOOLEAN;
-  t->bool = 1;
-  f->bool = 0;
-  sharpt = ADD_PTAG(t, PTAG_OTHER);
-  sharpf = ADD_PTAG(f, PTAG_OTHER);
-  n = (nil_t*)malloc(sizeof(nil_t));
-  n->tag = TAG_NIL;
-  nil = ADD_PTAG(n, PTAG_OTHER);
+lobject builtin_clos_cons;
+lobject builtin_clos_car;
+lobject builtin_clos_cdr;
+lobject builtin_clos_write;
+lobject builtin_clos_newline;
+lobject builtin_clos_call_with_current_continuation;
+lobject builtin_clos_eql;
+lobject builtin_clos_plus;
+lobject builtin_clos__;
+lobject builtin_clos_star;
+lobject builtin_clos_sla;
+lobject builtin_clos_list;
+lobject builtin_clos_liststar;
+
+#define MAKE_BUILTIN_CLOS(clos, fun, req, opt)  \
+  {                                             \
+  cont_t* p;                                    \
+  p = (cont_t*)malloc(sizeof(cont_t));          \
+  p->tag = TAG_CONT;                            \
+  p->fn = (function1_t)fun;                     \
+  p->env = NULL;                                \
+  p->num_required_args = req;                   \
+  p->optional_args = opt;                       \
+  clos = (lobject)ADD_PTAG(p, TAG_CONT);        \
+  }
+
+static int list_length(lobject x) {  /* Not detect circular lists */
+  int ret;
+  if (x == nil) {
+    return 0;
+  }
+  PTAG_CHECK(x, PTAG_CONS);
+  ret = 0;
+  do {
+    ++ret;
+    x = ((cons_t*)REM_PTAG(x))->cdr;
+  } while (GET_PTAG(x) == PTAG_CONS);
+  return ret;
 }
 
 void builtin_cons(env_t* env, cont_t* cont, lobject x, lobject y) {
@@ -120,6 +153,22 @@ void builtin_write(env_t* env, unsigned int num_args, ...) {
   RAW_CONTINUE1(cont, x);
 }
 
+static void builtin_list_write(env_t* env, lobject cont,
+                               lobject x, lobject opt) {
+  int num_oargs;
+  lobject port;
+  num_oargs = list_length(opt);
+  if (num_oargs > 1) {
+    fprintf(stderr, "Wrong number of arguments.\n");
+    exit(1);
+  }
+  if (num_oargs == 1) {
+    port = ((cons_t*)REM_PTAG(opt))->car;  /* TODO */
+  }
+  print_lobject(x);
+  RAW_CONTINUE1(cont, x);
+}
+
 void builtin_newline(env_t* env, unsigned int num_args, ...) {
   va_list args;
   cont_t* cont;
@@ -134,6 +183,21 @@ void builtin_newline(env_t* env, unsigned int num_args, ...) {
     port = va_arg(args, lobject);  /* TODO */
   }
   va_end(args);
+  puts("");
+  RAW_CONTINUE1(cont, 0);  /* 0 means the undefined value */
+}
+
+static void builtin_list_newline(env_t* env, lobject cont, lobject opt) {
+  int num_oargs;
+  lobject port;
+  num_oargs = list_length(opt);
+  if (num_oargs > 1) {
+    fprintf(stderr, "Wrong number of arguments.\n");
+    exit(1);
+  }
+  if (num_oargs  == 1) {
+    port = ((cons_t*)REM_PTAG(opt))->car;  /* TODO */
+  }
   puts("");
   RAW_CONTINUE1(cont, 0);  /* 0 means the undefined value */
 }
@@ -169,6 +233,31 @@ void builtin_eql(env_t* env, unsigned int num_args, ...) {  /* procedure = */
   }
 }
 
+static void builtin_list_eql(env_t* env, lobject cont,
+                             lobject x, lobject y, lobject opt) {
+  int val, eql = 1;
+  PTAG_CHECK(x, PTAG_FIXNUM);
+  PTAG_CHECK(y, PTAG_FIXNUM);
+  val = FIXNUM2INT(x);
+  if (val != FIXNUM2INT(y)) {
+    eql = 0;
+  }
+  while (eql && GET_PTAG(opt) == PTAG_CONS) {
+    lobject z;
+    z = ((cons_t*)REM_PTAG(opt))->car;
+    PTAG_CHECK(z, PTAG_FIXNUM);
+    if (val != FIXNUM2INT(z)) {
+      eql = 0;
+    }
+    opt = ((cons_t*)REM_PTAG(opt))->cdr;
+  }
+  if (eql) {
+    CONTINUE1(cont, sharpt);
+  } else {
+    CONTINUE1(cont, sharpf);
+  }
+}
+
 void builtin_plus(env_t* env, unsigned int num_args, ...) {  /* procedure + */
   va_list args;
   cont_t* cont;
@@ -181,6 +270,18 @@ void builtin_plus(env_t* env, unsigned int num_args, ...) {  /* procedure + */
     sum += FIXNUM2INT(x);
   }
   va_end(args);
+  CONTINUE1(cont, INT2FIXNUM(sum));
+}
+
+static void builtin_list_plus(env_t* env, lobject cont, lobject opt) {
+  int sum = 0;
+  while (GET_PTAG(opt) == PTAG_CONS) {
+    lobject x;
+    x = ((cons_t*)REM_PTAG(opt))->car;
+    PTAG_CHECK(x, PTAG_FIXNUM);
+    sum += FIXNUM2INT(x);
+    opt = ((cons_t*)REM_PTAG(opt))->cdr;
+  }
   CONTINUE1(cont, INT2FIXNUM(sum));
 }
 
@@ -206,6 +307,23 @@ void builtin__(env_t* env, unsigned int num_args, ...) {  /* procedure - */
   }
 }
 
+static void builtin_list__(env_t* env, lobject cont, lobject x, lobject opt) {
+  int sum;
+  PTAG_CHECK(x, PTAG_FIXNUM);
+  sum = FIXNUM2INT(x);
+  if (opt == nil) {
+    CONTINUE1(cont, INT2FIXNUM(-sum));
+  } else {
+    while (GET_PTAG(opt) == PTAG_CONS) {
+      x = ((cons_t*)REM_PTAG(opt))->car;
+      PTAG_CHECK(x, PTAG_FIXNUM);
+      sum -= FIXNUM2INT(x);
+      opt = ((cons_t*)REM_PTAG(opt))->cdr;
+    }
+    CONTINUE1(cont, INT2FIXNUM(sum));
+  }
+}
+
 void builtin_star(env_t* env, unsigned int num_args, ...) {  /* procedure * */
   va_list args;
   cont_t* cont;
@@ -218,6 +336,18 @@ void builtin_star(env_t* env, unsigned int num_args, ...) {  /* procedure * */
     sum *= FIXNUM2INT(x);
   }
   va_end(args);
+  CONTINUE1(cont, INT2FIXNUM(sum));
+}
+
+static void builtin_list_star(env_t* env, lobject cont, lobject opt) {
+  int sum = 1;
+  while (GET_PTAG(opt) == PTAG_CONS) {
+    lobject x;
+    x = ((cons_t*)REM_PTAG(opt))->car;
+    PTAG_CHECK(x, PTAG_FIXNUM);
+    sum *= FIXNUM2INT(x);
+    opt = ((cons_t*)REM_PTAG(opt))->cdr;
+  }
   CONTINUE1(cont, INT2FIXNUM(sum));
 }
 
@@ -239,6 +369,24 @@ void builtin_sla(env_t* env, unsigned int num_args, ...) {  /* procedure / */
       sum /= FIXNUM2INT(x);
     }
     va_end(args);
+    CONTINUE1(cont, INT2FIXNUM(sum));
+  }
+}
+
+static void builtin_list_sla(env_t* env, lobject cont,
+                             lobject x, lobject opt) {
+  int sum;
+  PTAG_CHECK(x, PTAG_FIXNUM);
+  sum = FIXNUM2INT(x);
+  if (opt == nil) {
+    CONTINUE1(cont, INT2FIXNUM(1 / sum));
+  } else {
+    while (GET_PTAG(opt) == PTAG_CONS) {
+      x = ((cons_t*)REM_PTAG(opt))->car;
+      PTAG_CHECK(x, PTAG_FIXNUM);
+      sum /= FIXNUM2INT(x);
+      opt = ((cons_t*)REM_PTAG(opt))->cdr;
+    }
     CONTINUE1(cont, INT2FIXNUM(sum));
   }
 }
@@ -265,6 +413,28 @@ void builtin_list(env_t* env, unsigned int num_args, ...) {
       }
     }
     va_end(args);
+    CONTINUE1(cont, ADD_PTAG(p, PTAG_CONS));
+  }
+}
+
+static void builtin_list_list(env_t* env, lobject cont, lobject opt) {
+  if (opt == nil) {
+    CONTINUE1(cont, nil);
+  } else {
+    cons_t* p;
+    int num_oargs, i;
+    num_oargs = list_length(opt);
+    p = alloca(sizeof(cons_t) * (num_oargs));
+    for (i = 0; i < num_oargs; ++i) {
+      p[i].tag = TAG_CONS;
+      p[i].car = ((cons_t*)REM_PTAG(opt))->car;
+      if (i == num_oargs - 1) {
+        p[i].cdr = nil;
+      } else {
+        p[i].cdr = ADD_PTAG(p + i + 1, PTAG_CONS);
+      }
+      opt = ((cons_t*)REM_PTAG(opt))->cdr;
+    }
     CONTINUE1(cont, ADD_PTAG(p, PTAG_CONS));
   }
 }
@@ -297,4 +467,61 @@ void builtin_liststar(env_t* env, unsigned int num_args, ...) {
     va_end(args);
     CONTINUE1(cont, ADD_PTAG(p, PTAG_CONS));
   }
+}
+
+static void builtin_list_liststar(env_t* env, lobject cont, lobject opt) {
+  int num_oargs;
+  num_oargs = list_length(opt);
+  if (opt == nil) {
+    CONTINUE1(cont, nil);
+  } else if (num_oargs == 1) {
+    CONTINUE1(cont, ((cons_t*)REM_PTAG(opt))->car);
+  } else {
+    int i;
+    cons_t* p;
+    p = alloca(sizeof(cons_t) * (num_oargs - 1));
+    for (i = 0; i < num_oargs - 1; ++i) {
+      p[i].tag = TAG_CONS;
+      p[i].car = ((cons_t*)REM_PTAG(opt))->car;
+      if (i < num_oargs - 2) {
+        p[i].cdr = ADD_PTAG(p + i + 1, PTAG_CONS);
+      }
+      opt = ((cons_t*)REM_PTAG(opt))->cdr;
+    }
+    p[num_oargs - 2].cdr = ((cons_t*)REM_PTAG(opt))->car;
+    CONTINUE1(cont, ADD_PTAG(p, PTAG_CONS));
+  }
+}
+
+void init_builtin_clos() {
+  MAKE_BUILTIN_CLOS(builtin_clos_cons, builtin_cons, 3, 0);
+  MAKE_BUILTIN_CLOS(builtin_clos_car, builtin_car, 2, 0);
+  MAKE_BUILTIN_CLOS(builtin_clos_cdr, builtin_cdr, 2, 0);
+  MAKE_BUILTIN_CLOS(builtin_clos_write, builtin_list_write, 3, 1);
+  MAKE_BUILTIN_CLOS(builtin_clos_newline, builtin_list_newline, 2, 1);
+  MAKE_BUILTIN_CLOS(builtin_clos_call_with_current_continuation,
+                    builtin_call_with_current_continuation, 3, 0);
+  MAKE_BUILTIN_CLOS(builtin_clos_eql, builtin_list_eql, 4, 1);
+  MAKE_BUILTIN_CLOS(builtin_clos_plus, builtin_list_plus, 2, 1);
+  MAKE_BUILTIN_CLOS(builtin_clos__, builtin_list__, 3, 1);
+  MAKE_BUILTIN_CLOS(builtin_clos_star, builtin_list_star, 2, 1);
+  MAKE_BUILTIN_CLOS(builtin_clos_sla, builtin_list_sla, 3, 1);
+  MAKE_BUILTIN_CLOS(builtin_clos_list, builtin_list_list, 2, 1);
+  MAKE_BUILTIN_CLOS(builtin_clos_liststar, builtin_list_liststar, 2, 1);
+}
+
+void init_builtin() {
+  boolean_t *t, *f;
+  nil_t* n;
+  t = (boolean_t*)malloc(sizeof(boolean_t));
+  f = (boolean_t*)malloc(sizeof(boolean_t));
+  t->tag = f->tag = TAG_BOOLEAN;
+  t->bool = 1;
+  f->bool = 0;
+  sharpt = ADD_PTAG(t, PTAG_OTHER);
+  sharpf = ADD_PTAG(f, PTAG_OTHER);
+  n = (nil_t*)malloc(sizeof(nil_t));
+  n->tag = TAG_NIL;
+  nil = ADD_PTAG(n, PTAG_OTHER);
+  init_builtin_clos();
 }

@@ -12,6 +12,20 @@ extern lobject sharpt;
 extern lobject sharpf;
 extern lobject nil;
 
+extern lobject builtin_clos_cons;
+extern lobject builtin_clos_car;
+extern lobject builtin_clos_cdr;
+extern lobject builtin_clos_write;
+extern lobject builtin_clos_newline;
+extern lobject builtin_clos_call_with_current_continuation;
+extern lobject builtin_clos_eql;
+extern lobject builtin_clos_plus;
+extern lobject builtin_clos__;
+extern lobject builtin_clos_star;
+extern lobject builtin_clos_sla;
+extern lobject builtin_clos_list;
+extern lobject builtin_clos_liststar;
+
 void init_builtin();
 void builtin_cons(env_t* env, cont_t* cont, lobject x, lobject y);
 void builtin_car(env_t* env, cont_t* cont, lobject x);
