@@ -1,4 +1,4 @@
-(load "./utilities.scm")
+(load "utilities.scm")
 
 (define not-cps-proc-list '())
 

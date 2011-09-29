@@ -13,11 +13,11 @@ for i; do
     shift
 done
 shift
-gosh -l ./compile.scm -e "(begin (compile-file \"$1\" \"${1%.*}\") (exit))"
+gosh -I ./compiler/ -l compile.scm -e "(begin (compile-file \"$1\" \"${1%.*}\") (exit))"
 if [ $opt_g ]; then
-    gcc -g -Wall -o ${1%.*} builtin.c symbol.c heap.c stack.c function.c ${1%.*}.c
+    gcc -g -Wall -o ${1%.*} builtin/builtin.c core/symbol.c core/heap.c core/stack.c core/function.c ${1%.*}.c
 elif [ $opt_O ]; then
-    gcc -O2 -o ${1%.*} builtin.c symbol.c heap.c stack.c function.c ${1%.*}.c
+    gcc -O2 -o ${1%.*} builtin/builtin.c core/symbol.c core/heap.c core/stack.c core/function.c ${1%.*}.c
 else
-    gcc -o ${1%.*} builtin.c symbol.c heap.c stack.c function.c ${1%.*}.c
+    gcc -o ${1%.*} builtin/builtin.c core/symbol.c core/heap.c core/stack.c core/function.c ${1%.*}.c
 fi

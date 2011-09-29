@@ -1,8 +1,8 @@
 #ifndef __KASHIWA_BUILTIN__
 #define __KASHIWA_BUILTIN__
 
-#include "function.h"
-#include "object.h"
+#include "../core/function.h"
+#include "../core/object.h"
 
 #define BOOLTEST(x) \
   (GET_PTAG(x) != PTAG_OTHER || OBJ_TAG(x) != TAG_BOOLEAN || \

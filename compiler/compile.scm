@@ -1,6 +1,6 @@
-(load "./gen.scm")
-(load "./cps.scm")
-(load "./macro.scm")
+(load "gen.scm")
+(load "cps.scm")
+(load "macro.scm")
 
 (define (compile-define exp init global run-exps)
   (let ((name (cadr exp))
@@ -39,9 +39,9 @@
                    (cons exp (cdr run-exps))))))
 
 (define (write-header-file port)
-  (display "#include \"builtin.h\"" port) (newline port)
-  (display "#include \"function.h\"" port) (newline port)
-  (display "#include \"symbol.h\"" port) (newline port)
+  (display "#include \"builtin/builtin.h\"" port) (newline port)
+  (display "#include \"core/function.h\"" port) (newline port)
+  (display "#include \"core/symbol.h\"" port) (newline port)
   (newline port)
   (for-each
    (lambda (x)
@@ -52,8 +52,8 @@
 (define (write-c-file port init global main end-of-toplevel-exp header)
   (display (string-append "#include \"" header "\"") port) (newline port)
   (newline port)
-  (display "#include \"heap.h\"" port) (newline port)
-  (display "#include \"stack.h\"" port) (newline port)
+  (display "#include \"core/heap.h\"" port) (newline port)
+  (display "#include \"core/stack.h\"" port) (newline port)
   (newline port)
   (display (string-append "#include <assert.h>") port) (newline port)
   (display (string-append "#include <setjmp.h>") port) (newline port)

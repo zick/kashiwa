@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "function.h"
-#include "object.h"
+#include "../core/function.h"
+#include "../core/object.h"
 
 #define VA_ARG_PTAG_CHECK(args, var, ptag)      \
   {                                             \

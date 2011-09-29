@@ -1,4 +1,4 @@
-(load "./utilities.scm")
+(load "utilities.scm")
 
 (define num-arguments-limit 4)
 
