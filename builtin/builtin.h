@@ -1,7 +1,6 @@
 #ifndef __KASHIWA_BUILTIN__
 #define __KASHIWA_BUILTIN__
 
-#include "../core/function.h"
 #include "../core/object.h"
 
 #define BOOLTEST(x) \

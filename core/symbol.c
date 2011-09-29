@@ -1,8 +1,8 @@
+#include "symbol.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "object.h"
 
 #define INITIAL_SYMBOL_TABLE_ENTRY 1024
 #define INITIAL_SYMBOL_STRING_SIZE 8192

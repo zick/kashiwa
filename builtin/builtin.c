@@ -5,7 +5,6 @@
 #include <stdlib.h>
 
 #include "../core/function.h"
-#include "../core/object.h"
 
 #define VA_ARG_PTAG_CHECK(args, var, ptag)      \
   {                                             \
