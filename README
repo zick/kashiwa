@@ -12,6 +12,7 @@ It uses Henry Baker's Cheney on the M.T.A. concept.
 
 == How to use
 
+% make  (only once)
 % ./kashiwac program.scm
 % ./program
 
