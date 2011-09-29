@@ -1,8 +1,8 @@
 #include "function.h"
 
-#include <alloca.h>
 #include <assert.h>
 #include <stdarg.h>
+#include <stdlib.h>
 
 extern lobject nil;
 
